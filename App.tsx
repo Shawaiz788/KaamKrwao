@@ -20,7 +20,14 @@ export default function App() {
       <StatusBar style="auto" />
       <Text style={styles.title}>Sign in</Text>
 
-      <TextInput placeholder='Email' style={styles.input} />
+      <TextInput
+        placeholder='Email'
+        style={styles.input}
+        autoFocus
+        autoCapitalize='none'
+        keyboardType='email-address'
+        autoComplete='email'
+      />
       <TextInput placeholder='Password' style={styles.input} secureTextEntry />
 
       <Pressable
@@ -41,7 +48,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     padding: 20,
     gap: 20,
   },
