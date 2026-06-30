@@ -9,6 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import CustomInput from './src/components/CustomInput';
+import CustomButton from './src/components/CustomButton';
 
 export default function App() {
   return (
@@ -16,28 +18,23 @@ export default function App() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <Text>Open up App.tsx to start working on your app!</Text>
       <StatusBar style="auto" />
       <Text style={styles.title}>Sign in</Text>
 
-      <TextInput
+      <CustomInput
         placeholder='Email'
-        style={styles.input}
         autoFocus
         autoCapitalize='none'
         keyboardType='email-address'
         autoComplete='email'
       />
-      <TextInput placeholder='Password' style={styles.input} secureTextEntry />
-
-      <Pressable
+      <CustomInput placeholder='Password' secureTextEntry />
+      <CustomButton
+        text='Sign in'
         onPress={() => {
-          console.log('pressed');
+          console.log('Pressed');
         }}
-        style={styles.button}
-      >
-        <Text style={styles.buttonText}>Sign in</Text>
-      </Pressable>
+      />
 
       <StatusBar style='auto' />
     </KeyboardAvoidingView>
@@ -56,22 +53,5 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '600',
   },
-  input: {
-    borderWidth: 1,
-    padding: 10,
-    borderRadius: 5,
-    borderColor: '#ccc',
-  },
 
-  button: {
-    backgroundColor: '#4353FD',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
 });
