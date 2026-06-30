@@ -1,15 +1,15 @@
 import { TextInput, StyleSheet, TextInputProps, Text, View } from 'react-native';
-import { Controller } from 'react-hook-form'
-type CustomInputProps = {
-    control: any;
-    name: string
+import { Control, Controller, FieldValues, Path } from 'react-hook-form'
+type CustomInputProps<T extends FieldValues> = {
+    control: Control<T>;
+    name: Path<T>
 } & TextInputProps;  //merges with text input props
 
-export default function CustomInput({ control, name, ...props }: CustomInputProps) {
+export default function CustomInput<T extends FieldValues>({ control, name, ...props }: CustomInputProps<T>) {
     return (<Controller
         name={name}
         control={control}
-        rules={{ required: 'This field is required' }}
+        // rules={{ required: 'This field is required' }} removed as we will now use schema validation from 
         render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
             <View style={styles.container}>
                 <TextInput
@@ -33,10 +33,11 @@ const styles = StyleSheet.create({
         padding: 10,
         borderRadius: 5,
         borderColor: '#ccc',
-        width: '80%',
+        width: '100%',
     }, error: {
         color: 'crimson'
     }, container: {
+        width: '80%',
         gap: 2
     }
 });

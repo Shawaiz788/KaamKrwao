@@ -1,29 +1,35 @@
-
 import { StatusBar } from 'expo-status-bar';
 import {
   StyleSheet,
   Text,
   View,
-  TextInput,
-  Pressable,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import CustomInput from './src/components/CustomInput';
-import CustomButton from './src/components/CustomButton';
-import { useState } from 'react';
-import { useForm, Controller } from 'react-hook-form'
+import CustomInput from '@/components/CustomInput';
+import CustomButton from '@/components/CustomButton';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+
+const signInSchema = z.object({
+  email: z.string({ message: 'Email is required' }).email('Invalid email'),
+  password: z
+    .string({ message: 'Password is required' })
+    .min(8, 'Password should be at least 8 characters long'),
+});
+
+type SignInFields = z.infer<typeof signInSchema>;
 
 export default function App() {
+  const { control, handleSubmit, formState: { errors } } = useForm<SignInFields>({
+    resolver: zodResolver(signInSchema)
+  });
 
-
-
-
-  const { control, handleSubmit, formState: { errors } } = useForm({})
-
-  const OnSignInPress = (data: any) => {
+  const OnSignInPress = (data: SignInFields) => {
     console.log('SignIn:', data);
-  }
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -31,10 +37,7 @@ export default function App() {
     >
       <Text style={styles.title}>Sign in</Text>
 
-
       <View style={styles.form}>
-
-
         <CustomInput
           placeholder='Email'
           name='email'
@@ -60,6 +63,7 @@ export default function App() {
     </KeyboardAvoidingView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -72,8 +76,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '600',
-  }, form: {
-    gap: 5
+  },
+  form: {
+    gap: 5,
+    width: '100%',
+    alignItems: 'center',
   }
-
 });
