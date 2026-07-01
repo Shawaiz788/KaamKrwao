@@ -1,18 +1,19 @@
-import { StatusBar } from 'expo-status-bar';
 import {
     StyleSheet,
     Text,
-    View,
     KeyboardAvoidingView,
     Platform,
+    View,
 } from 'react-native';
 import CustomInput from '@/components/CustomInput';
 import CustomButton from '@/components/CustomButton';
+import { Link } from 'expo-router';
+
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, router } from 'expo-router';
-import { useAuth } from '@/providers/AuthProvider';
+
+import { useSignIn } from '@clerk/clerk-expo';
 
 const signInSchema = z.object({
     email: z.string({ message: 'Email is required' }).email('Invalid email'),
@@ -24,15 +25,33 @@ const signInSchema = z.object({
 type SignInFields = z.infer<typeof signInSchema>;
 
 export default function SignInScreen() {
-    const { control, handleSubmit, formState: { errors } } = useForm<SignInFields>({
-        resolver: zodResolver(signInSchema)
+    const { control, handleSubmit } = useForm<SignInFields>({
+        resolver: zodResolver(signInSchema),
     });
 
-    const { signIn } = useAuth()
+    const { signIn, isLoaded, setActive } = useSignIn();
 
-    const OnSignInPress = (data: SignInFields) => {
-        console.log('SignIn:', data);
-        signIn();
+    const onSignIn = async (data: SignInFields) => {
+        if (!isLoaded) return;
+
+        try {
+            const signInAttempt = await signIn.create({
+                identifier: data.email,
+                password: data.password,
+            });
+
+            if (signInAttempt.status === 'complete') {
+                setActive({ session: signInAttempt.createdSessionId });
+            } else {
+                console.log('Sign in failed');
+            }
+
+            console.log('Sign in attempt: ', signInAttempt);
+        } catch (err) {
+            console.log('Sign in error: ', err);
+        }
+
+        console.log('Sign in: ', data.email, data.password);
     };
 
     return (
@@ -44,31 +63,28 @@ export default function SignInScreen() {
 
             <View style={styles.form}>
                 <CustomInput
-                    placeholder='Email'
+                    control={control}
                     name='email'
+                    placeholder='Email'
                     autoFocus
                     autoCapitalize='none'
                     keyboardType='email-address'
                     autoComplete='email'
-                    control={control}
                 />
+
                 <CustomInput
-                    placeholder='Password'
-                    secureTextEntry
                     control={control}
                     name='password'
+                    placeholder='Password'
+                    secureTextEntry
                 />
             </View>
-            <CustomButton
-                text='Sign in'
-                onPress={handleSubmit(OnSignInPress)}
-            />
+
+            <CustomButton text='Sign in' onPress={handleSubmit(onSignIn)} />
 
             <Link href='/sign-up' style={styles.link}>
                 Don't have an account? Sign up
             </Link>
-
-            <StatusBar style='auto' />
         </KeyboardAvoidingView>
     );
 }
@@ -77,21 +93,24 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
-        alignItems: 'center',
         justifyContent: 'center',
+        alignItems: 'center',
         padding: 20,
         gap: 20,
+    },
+    form: {
+        gap: 12,
+        width: '100%',
+        alignItems: 'center',
     },
     title: {
         fontSize: 24,
         fontWeight: '600',
+        marginBottom: 10,
     },
-    form: {
-        gap: 5,
-        width: '100%',
-        alignItems: 'center',
-    }, link: {
+    link: {
         color: '#4353FD',
         fontWeight: '600',
+        marginTop: 10,
     },
 });

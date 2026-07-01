@@ -1,18 +1,21 @@
-import { useAuth } from "@/providers/AuthProvider";
-import { Redirect, Stack } from "expo-router";
-
+import { Redirect, Stack } from 'expo-router';
+import { useAuth } from '@clerk/clerk-expo';
 
 export default function AuthLayout() {
-    console.log('Auth Layout')
+    console.log('Auth layout');
+    const { isSignedIn } = useAuth();
 
-    const { isAuthenticated } = useAuth();
-
-    if (isAuthenticated) {
-        return <Redirect href="/" />
+    if (isSignedIn) {
+        return <Redirect href={'/'} />;
     }
-    return <Stack >
-        <Stack.Screen name='sign-in' options={{ headerShown: false, title: 'Sign in' }} />
-        <Stack.Screen name='sign-up' options={{ title: 'Sign up' }} />
 
-    </Stack>
+    return (
+        <Stack>
+            <Stack.Screen
+                name='sign-in'
+                options={{ headerShown: false, title: 'Sign in' }}
+            />
+            <Stack.Screen name='sign-up' options={{ title: 'Sign up' }} />
+        </Stack>
+    );
 }

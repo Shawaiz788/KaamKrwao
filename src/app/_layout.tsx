@@ -1,12 +1,19 @@
-import { AuthProvider } from "@/providers/AuthProvider";
-import { Slot } from "expo-router";
+import { Slot } from 'expo-router';
+import { ClerkProvider } from '@clerk/clerk-expo';
+import { tokenCache } from '@clerk/clerk-expo/token-cache';
 
+const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
+
+if (!publishableKey) {
+  throw new Error('Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in your .env file');
+}
 
 export default function RootLayout() {
-    console.log('Root Layout')
-    return (
-        <AuthProvider>
-            <Slot />
-        </AuthProvider>
-    )
+  console.log('Root layout');
+
+  return (
+    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+      <Slot />
+    </ClerkProvider>
+  );
 }

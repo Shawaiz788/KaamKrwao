@@ -1,21 +1,20 @@
 import { Text, StyleSheet, View, Button } from 'react-native';
 import { Link } from 'expo-router';
-import { useAuth } from '@/providers/AuthProvider';
+import { useAuth } from '@clerk/clerk-expo';
 
 export default function WelcomeScreen() {
+  const { signOut, isSignedIn } = useAuth();
 
-  const { isAuthenticated, signOut } = useAuth()
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome screen</Text>
 
-      <Text>{isAuthenticated ? 'Authenticated' : 'Not Authenticated'}</Text>
+      <Text>{isSignedIn ? 'Authenticated' : 'Not authenticated'}</Text>
+      <Button title='Sign out' onPress={() => signOut()} />
 
-      <Button title='Sign out' onPress={signOut} />
+      <Link href='/sign-in'>Go to sign in</Link>
 
-
-      <Link href="/sign-in">Go to sign in</Link>
-      <Link href="/(protected)/">Go to Protected Screens</Link>
+      <Link href='/(protected)'>Go to Protected Screens</Link>
     </View>
   );
 }
