@@ -1,47 +1,120 @@
-import { TextInput, StyleSheet, TextInputProps, Text, View } from 'react-native';
-import { Control, Controller, FieldValues, Path } from 'react-hook-form'
+import React, { useState } from 'react';
+import { TextInput, StyleSheet, TextInputProps, Text, View, Pressable, ViewStyle } from 'react-native';
+import { Control, Controller, FieldValues, Path } from 'react-hook-form';
+import { Ionicons } from '@expo/vector-icons';
+
 type CustomInputProps<T extends FieldValues> = {
-    control: Control<T>;
-    name: Path<T>
-} & TextInputProps;  //merges with text input props
+  control: Control<T>;
+  name: Path<T>;
+  label?: string;
+  containerStyle?: ViewStyle;
+} & TextInputProps;
 
-export default function CustomInput<T extends FieldValues>({ control, name, ...props }: CustomInputProps<T>) {
-    return (<Controller
-        name={name}
-        control={control}
-        // rules={{ required: 'This field is required' }} removed as we will now use schema validation from 
-        render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
-            <View style={styles.container}>
-                <TextInput
-                    {...props}
-                    value={value}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                    style={[styles.input, props.style, { borderColor: error ? 'crimson' : '#ccc' }]}
+export default function CustomInput<T extends FieldValues>({
+  control,
+  name,
+  label,
+  containerStyle,
+  ...props
+}: CustomInputProps<T>) {
+  const [isSecured, setIsSecured] = useState(props.secureTextEntry);
+  const [isFocused, setIsFocused] = useState(false);
 
+  return (
+    <Controller
+      name={name}
+      control={control}
+      render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
+        <View style={[styles.container, containerStyle]}>
+          {label && <Text style={styles.label}>{label}</Text>}
+          
+          <View 
+            style={[
+              styles.inputWrapper,
+              { 
+                borderColor: error ? '#EF4444' : isFocused ? '#16A34A' : '#E5E7EB',
+                backgroundColor: isFocused ? '#FFFFFF' : '#F3F4F6'
+              }
+            ]}
+          >
+            <TextInput
+              {...props}
+              value={value}
+              onChangeText={onChange}
+              onBlur={(e) => {
+                onBlur();
+                setIsFocused(false);
+                if (props.onBlur) props.onBlur(e);
+              }}
+              onFocus={(e) => {
+                setIsFocused(true);
+                if (props.onFocus) props.onFocus(e);
+              }}
+              secureTextEntry={isSecured}
+              style={styles.input}
+              placeholderTextColor="#9CA3AF"
+            />
+            
+            {props.secureTextEntry && (
+              <Pressable 
+                onPress={() => setIsSecured(!isSecured)} 
+                style={styles.eyeIcon}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons 
+                  name={isSecured ? "eye-outline" : "eye-off-outline"} 
+                  size={20} 
+                  color="#9CA3AF" 
                 />
-                {error ? (
-                    <Text style={styles.error}>{error.message}</Text>
-                ) : (
-                    <View style={{ height: 18 }} />
-                )}
-            </View>
-        )} />
-
-    ); //so that we can allow overwriting of props as well
+              </Pressable>
+            )}
+          </View>
+          
+          {error ? (
+            <Text style={styles.error}>{error.message}</Text>
+          ) : (
+            <View style={{ height: 4 }} />
+          )}
+        </View>
+      )}
+    />
+  );
 }
 
 const styles = StyleSheet.create({
-    input: {
-        borderWidth: 1,
-        padding: 10,
-        borderRadius: 5,
-        borderColor: '#ccc',
-        width: '100%',
-    }, error: {
-        color: 'crimson'
-    }, container: {
-        width: '80%',
-        gap: 2
-    }
+  container: {
+    width: '100%',
+    marginBottom: 8,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 6,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 48,
+  },
+  input: {
+    flex: 1,
+    height: '100%',
+    color: '#1F2937',
+    fontSize: 15,
+  },
+  eyeIcon: {
+    marginLeft: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  error: {
+    color: '#EF4444',
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
+  },
 });

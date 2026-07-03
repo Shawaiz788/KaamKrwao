@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@clerk/clerk-expo": "^2.19.31",
+    "@expo/vector-icons": "^15.1.1",
     "@hookform/resolvers": "^5.4.0",
     "expo": "~54.0.34",
     "expo-auth-session": "~7.0.11",
