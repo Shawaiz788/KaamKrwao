@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     forgotPasswordText: {
-        color: '#D97706',
+        color: '#16A34A',
         fontSize: 14,
         fontWeight: '600',
     },
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     redirectLinkText: {
-        color: '#D97706',
+        color: '#16A34A',
         fontSize: 14,
         fontWeight: '700',
     },
