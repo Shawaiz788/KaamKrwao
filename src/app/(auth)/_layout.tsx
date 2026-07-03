@@ -6,7 +6,7 @@ export default function AuthLayout() {
     const { isSignedIn } = useAuth();
 
     if (isSignedIn) {
-        return <Redirect href={'/'} />;
+        return <Redirect href={'HomeScreen'} />;
     }
 
     return (
@@ -16,6 +16,7 @@ export default function AuthLayout() {
                 options={{ headerShown: false, title: 'Sign in' }}
             />
             <Stack.Screen name='sign-up' options={{ headerShown: false, title: 'Sign up' }} />
+            <Stack.Screen name='verify' options={{ headerShown: false, title: 'Verify' }} />
         </Stack>
     );
 }
