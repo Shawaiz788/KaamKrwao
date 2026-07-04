@@ -18,7 +18,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { getAuth, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const signInSchema = z.object({
     phone: z
@@ -29,6 +29,7 @@ const signInSchema = z.object({
 type SignInFields = z.infer<typeof signInSchema>;
 
 export default function SignInScreen() {
+    const insets = useSafeAreaInsets();
     const {
         control,
         handleSubmit,
@@ -50,8 +51,14 @@ export default function SignInScreen() {
         try {
             const formattedPhone = `+92${data.phone}`;
             const auth = getAuth();
+            
+            // Clear any stale user session to prevent firebase auth from getting stuck
+            if (auth.currentUser) {
+                await auth.signOut();
+            }
+            
             const confirmation = await signInWithPhoneNumber(auth, formattedPhone);
-            router.replace({
+            router.push({
                 pathname: '/verify',
                 params: {
                     phoneNumber: formattedPhone,
@@ -71,8 +78,8 @@ export default function SignInScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <StatusBar barStyle="light-content" backgroundColor="#072212" />
+        <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor="#0B5A3E" />
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -84,7 +91,7 @@ export default function SignInScreen() {
                     showsVerticalScrollIndicator={false}
                 >
                     {/* Header Area */}
-                    <View style={styles.headerContainer}>
+                    <View style={[styles.headerContainer, { paddingTop: insets.top + 20 }]}>
                         <View style={[styles.circleDeco, styles.circle1]} />
                         <View style={[styles.circleDeco, styles.circle2]} />
 
@@ -133,6 +140,7 @@ export default function SignInScreen() {
                                                     placeholder="3001234567"
                                                     placeholderTextColor="#9CA3AF"
                                                     keyboardType="numeric"
+                                                    autoFocus
                                                     value={value}
                                                     onChangeText={(text) => {
                                                         const clean = text.replace(/[^0-9]/g, '').slice(0, 10);
@@ -170,25 +178,26 @@ export default function SignInScreen() {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
-        </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    safeArea: {
+    container: {
         flex: 1,
-        backgroundColor: '#F9FAFB',
+        backgroundColor: '#FFFFFF',
     },
     keyboardAvoid: {
         flex: 1,
+        backgroundColor: '#FFFFFF',
     },
     scrollContent: {
         flexGrow: 1,
+        backgroundColor: '#FFFFFF',
     },
     headerContainer: {
         backgroundColor: '#0B5A3E',
         paddingHorizontal: 20,
-        paddingTop: 20,
         paddingBottom: 28,
         position: 'relative',
         overflow: 'hidden',

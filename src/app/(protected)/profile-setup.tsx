@@ -15,12 +15,13 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../provider/auth'; // Updated import
 import { updateProfile } from '@react-native-firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type City = 'Lahore' | 'Karachi' | 'Islamabad' | 'Rawalpindi';
 type Role = 'client' | 'provider';
 
 export default function ProfileSetupScreen() {
+  const insets = useSafeAreaInsets();
   const { user, reloadUser } = useAuth(); // Updated hook usage
   const router = useRouter();
 
@@ -84,8 +85,8 @@ export default function ProfileSetupScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#072212" />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#0B5A3E" />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -97,7 +98,7 @@ export default function ProfileSetupScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Header Section */}
-          <View style={styles.headerContainer}>
+          <View style={[styles.headerContainer, { paddingTop: insets.top + 36 }]}>
             <Text style={styles.headerTitle}>Complete Profile</Text>
             <Text style={styles.headerSubtitle}>Tell us a bit about yourself to get started</Text>
           </View>
@@ -275,24 +276,26 @@ export default function ProfileSetupScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: '#072212',
+    backgroundColor: '#FFFFFF',
   },
   keyboardAvoid: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
     flexGrow: 1,
+    backgroundColor: '#FFFFFF',
   },
   headerContainer: {
+    backgroundColor: '#0B5A3E',
     paddingHorizontal: 24,
-    paddingTop: 36,
     paddingBottom: 28,
   },
   headerTitle: {

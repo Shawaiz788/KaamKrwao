@@ -17,7 +17,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { getAuth, PhoneAuthProvider, signInWithCredential, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 const verifySchema = z.object({
   code: z.string({ message: 'Code is required' }).length(6, 'Verification code must be 6 digits'),
 });
@@ -25,6 +25,7 @@ const verifySchema = z.object({
 type VerifyFields = z.infer<typeof verifySchema>;
 
 export default function VerifyScreen() {
+  const insets = useSafeAreaInsets();
   const {
     control,
     handleSubmit,
@@ -149,15 +150,15 @@ export default function VerifyScreen() {
 
   if (isVerified) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#072212' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B5A3E' }}>
         <ActivityIndicator size="large" color="#FFFFFF" />
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#072212" />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#0B5A3E" />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -169,14 +170,20 @@ export default function VerifyScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Header Area */}
-          <View style={styles.headerContainer}>
+          <View style={[styles.headerContainer, { paddingTop: insets.top + 16 }]}>
             <View style={[styles.circleDeco, styles.circle1]} />
             <View style={[styles.circleDeco, styles.circle2]} />
 
             {/* Back Button */}
             <Pressable
               style={styles.backButton}
-              onPress={() => router.back()}
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/(auth)/sign-in');
+                }
+              }}
             >
               <Ionicons name="arrow-back-outline" size={20} color="#FFFFFF" />
               <Text style={styles.backButtonText}>Back</Text>
@@ -300,25 +307,26 @@ export default function VerifyScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FFFFFF',
   },
   keyboardAvoid: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
     flexGrow: 1,
+    backgroundColor: '#FFFFFF',
   },
   headerContainer: {
-    backgroundColor: '#072212',
+    backgroundColor: '#0B5A3E',
     paddingHorizontal: 20,
-    paddingTop: 16,
     paddingBottom: 28,
     position: 'relative',
     overflow: 'hidden',
@@ -403,8 +411,12 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -16,
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: 32,
     paddingBottom: 32,
   },
   inputLabel: {

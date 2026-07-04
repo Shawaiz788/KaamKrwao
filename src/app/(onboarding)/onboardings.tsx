@@ -7,8 +7,6 @@ import {
   Dimensions,
   StatusBar,
   Platform,
-  LayoutAnimation,
-  UIManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,11 +18,8 @@ import Animated, {
   withTiming,
   FadeInRight,
 } from 'react-native-reanimated';
+import * as NavigationBar from 'expo-navigation-bar';
 
-// Enable layout animation on Android for minor layout updates
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 const { width, height } = Dimensions.get('window');
 
@@ -199,6 +194,18 @@ export default function OnboardingScreen1() {
   const router = useRouter();
   const [page, setPage] = useState(1);
 
+  // Use light button icons on Android to remove the contrast background scrim and make the navigation bar transparent over our green background
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      NavigationBar.setButtonStyleAsync('light');
+    }
+    return () => {
+      if (Platform.OS === 'android') {
+        NavigationBar.setButtonStyleAsync('dark');
+      }
+    };
+  }, []);
+
   // Shared Animation Values (Progress Indicators)
   const progress1 = useSharedValue(1);
   const progress2 = useSharedValue(0);
@@ -224,7 +231,6 @@ export default function OnboardingScreen1() {
 
   const handleNext = () => {
     if (page < 3) {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setPage(page + 1);
     } else {
       router.replace('/(auth)/sign-in');
@@ -233,7 +239,6 @@ export default function OnboardingScreen1() {
 
   const handleBack = () => {
     if (page > 1) {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setPage(page - 1);
     } else {
       router.back();
