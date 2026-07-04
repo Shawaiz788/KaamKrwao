@@ -16,7 +16,7 @@ import { Link, useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import auth from '@react-native-firebase/auth';
+import { getAuth, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -49,7 +49,8 @@ export default function SignInScreen() {
         setIsLoading(true);
         try {
             const formattedPhone = `+92${data.phone}`;
-            const confirmation = await auth().signInWithPhoneNumber(formattedPhone);
+            const auth = getAuth();
+            const confirmation = await signInWithPhoneNumber(auth, formattedPhone);
             router.replace({
                 pathname: '/verify',
                 params: {

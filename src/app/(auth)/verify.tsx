@@ -15,7 +15,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import auth from '@react-native-firebase/auth';
+import { getAuth, PhoneAuthProvider, signInWithCredential, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 const verifySchema = z.object({
@@ -82,8 +82,9 @@ export default function VerifyScreen() {
         throw new Error('Verification session expired. Please request a new code.');
       }
 
-      const credential = auth.PhoneAuthProvider.credential(activeVerificationId, code);
-      const userCredential = await auth().signInWithCredential(credential);
+      const authInstance = getAuth();
+      const credential = PhoneAuthProvider.credential(activeVerificationId, code);
+      const userCredential = await signInWithCredential(authInstance, credential);
 
       setFeedbackType('success');
       setFeedbackMessage('Verification successful!');
@@ -114,7 +115,8 @@ export default function VerifyScreen() {
         throw new Error('Phone number is missing.');
       }
 
-      const confirmation = await auth().signInWithPhoneNumber(phoneNumber);
+      const authInstance = getAuth();
+      const confirmation = await signInWithPhoneNumber(authInstance, phoneNumber);
       if (!confirmation.verificationId) {
         throw new Error('Failed to get verification ID from server.');
       }
