@@ -8,6 +8,7 @@ import {
   Dimensions,
   Platform,
   ActivityIndicator,
+  Image
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../provider/auth'; // Updated import
@@ -40,7 +41,7 @@ export default function WelcomeScreen() {
         router.replace('/HomeScreen');
       }
     } else {
-      router.push('/sign-in');
+      router.push('/onboardings');
     }
   };
 
@@ -60,9 +61,10 @@ export default function WelcomeScreen() {
         {/* Top/Center Branding Area */}
         <View style={styles.brandWrapper}>
           <View style={styles.logoBox}>
-            <View style={styles.rotatedContainer}>
-              <Text style={styles.hammerEmoji}>🔨</Text>
-            </View>
+            <Image
+              source={require('../../assets/KaamKrwao.png')}
+              style={styles.logoImage}
+            />
           </View>
           <Text style={styles.brandName}>KaamKar</Text>
           <Text style={styles.brandSubtitle}>Find trusted local services</Text>
@@ -161,9 +163,6 @@ const styles = StyleSheet.create({
     width: 90,
     height: 90,
     borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -174,6 +173,13 @@ const styles = StyleSheet.create({
   },
   rotatedContainer: {
     transform: [{ rotate: '-15deg' }],
+  },
+  logoImage: {
+    width: 90,
+    height: 90,
+    borderRadius: 24,
+    resizeMode: 'contain',
+    overflow: 'hidden'
   },
   hammerEmoji: {
     fontSize: 38,
