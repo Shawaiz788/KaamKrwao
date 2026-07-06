@@ -27,7 +27,7 @@ export default function WelcomeScreen() {
       if (isProfileIncomplete) {
         router.replace('/profile-setup');
       } else {
-        router.replace('/HomeScreen');
+        router.replace('/home');
       }
     }
   }, [user]);
@@ -38,7 +38,7 @@ export default function WelcomeScreen() {
       if (isProfileIncomplete) {
         router.replace('/profile-setup');
       } else {
-        router.replace('/HomeScreen');
+        router.replace('/home');
       }
     } else {
       router.push('/onboardings');

@@ -75,10 +75,11 @@ export default function SignInScreen() {
             // Authenticate directly (mock via signInAnonymously)
             const userCredential = await signInAnonymously(auth);
 
-            if (userInfo && userInfo.fullName) {
+            const fullName = userInfo ? `${userInfo.first_name} ${userInfo.last_name}`.trim() : '';
+            if (fullName) {
                 // Set the display name to mock user info
                 await updateProfile(userCredential.user, {
-                    displayName: userInfo.fullName,
+                    displayName: fullName,
                 });
             }
 
@@ -86,7 +87,7 @@ export default function SignInScreen() {
             await reloadUser();
 
             // Redirect directly to home screen
-            router.replace('/HomeScreen');
+            router.replace('/home');
         } catch (err: any) {
             console.log('Sign in error: ', err);
             setError('root', { message: err.message || 'An error occurred signing in' });

@@ -78,7 +78,7 @@ export default function ProfileSetupScreen() {
       });
 
       console.log('Profile setup saved successfully!');
-      router.replace('/HomeScreen');
+      router.replace('/home');
     } catch (err: any) {
       console.log('Error saving profile setup: ', err);
       setErrorMsg(err?.message || 'Failed to save profile. Please try again.');
@@ -88,7 +88,7 @@ export default function ProfileSetupScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#0B5A3E" />
 
       <KeyboardAvoidingView
@@ -304,7 +304,7 @@ export default function ProfileSetupScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 }
 

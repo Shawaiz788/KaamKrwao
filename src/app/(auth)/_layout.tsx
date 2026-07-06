@@ -18,7 +18,7 @@ export default function AuthLayout() {
         if (isProfileIncomplete) {
             return <Redirect href={'/profile-setup'} />;
         }
-        return <Redirect href={'/HomeScreen'} />;
+        return <Redirect href={'/home'} />;
     }
 
     return (

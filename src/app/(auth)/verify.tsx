@@ -97,7 +97,7 @@ export default function VerifyScreen() {
       if (isNewUser || isProfileIncomplete) {
         router.replace('/profile-setup');
       } else {
-        router.replace('/HomeScreen');
+        router.replace('/home');
       }
     } catch (err: any) {
       console.log('Verification error: ', err);
