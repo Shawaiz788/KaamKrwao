@@ -11,18 +11,15 @@ import {
     TextInput,
     ActivityIndicator,
 } from 'react-native';
-import CustomInput from '@/components/CustomInput';
 import { Link, useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { getAuth, signInWithPhoneNumber, signInAnonymously, updateProfile } from '@react-native-firebase/auth';
+import { getAuth, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getUserById, getUserByPhoneNumber } from '../../../api/user';
-import { useAuth } from '../../provider/auth';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const signInSchema = z.object({
+const signUpSchema = z.object({
     phone: z
         .string({ message: 'Phone number is required' })
         .regex(/^[0-9]{10}$/, 'Phone number must be exactly 10 digits (e.g. 3001234567)'),
@@ -32,64 +29,67 @@ const signInSchema = z.object({
         .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
         .regex(/[a-zA-Z]/, 'Password must contain at least one alphabet letter')
         .regex(/[^a-zA-Z0-9]/, 'Password must contain at least one special character'),
+    confirmPassword: z
+        .string({ message: 'Confirm password is required' }),
+}).refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords must match',
+    path: ['confirmPassword'],
 });
 
-type SignInFields = z.infer<typeof signInSchema>;
+type SignUpFields = z.infer<typeof signUpSchema>;
 
-export default function SignInScreen() {
+export default function SignUpScreen() {
     const insets = useSafeAreaInsets();
+    const router = useRouter();
+    const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
     const {
         control,
         handleSubmit,
         setError,
+        watch,
         formState: { errors },
-    } = useForm<SignInFields>({
-        resolver: zodResolver(signInSchema),
+    } = useForm<SignUpFields>({
+        resolver: zodResolver(signUpSchema),
         defaultValues: {
             phone: '',
             password: '',
+            confirmPassword: '',
         },
     });
 
-    const router = useRouter();
-    const { reloadUser } = useAuth();
+    const watchPassword = watch('password');
 
-    const [isLoading, setIsLoading] = useState(false);
-
-    const onSignIn = async (data: SignInFields) => {
+    const onSignUp = async (data: SignUpFields) => {
         setIsLoading(true);
         try {
             const formattedPhone = `+92${data.phone}`;
-            console.log('[SignIn] Fetching user info for phone:', formattedPhone);
-            const userInfo = await getUserByPhoneNumber(data.phone);
-            console.log('[SignIn] Fetched user info:', userInfo);
-
             const auth = getAuth();
-
+            
             // Clear any stale user session to prevent firebase auth from getting stuck
             if (auth.currentUser) {
                 await auth.signOut();
             }
-
-            // Authenticate directly (mock via signInAnonymously)
-            const userCredential = await signInAnonymously(auth);
-
-            if (userInfo && userInfo.fullName) {
-                // Set the display name to mock user info
-                await updateProfile(userCredential.user, {
-                    displayName: userInfo.fullName,
-                });
-            }
-
-            // Sync the local Auth context
-            await reloadUser();
-
-            // Redirect directly to home screen
-            router.replace('/HomeScreen');
+            
+            const confirmation = await signInWithPhoneNumber(auth, formattedPhone);
+            router.push({
+                pathname: '/verify',
+                params: {
+                    phoneNumber: formattedPhone,
+                    verificationId: confirmation.verificationId,
+                    password: data.password,
+                    flowType: 'sign-up',
+                },
+            });
         } catch (err: any) {
-            console.log('Sign in error: ', err);
-            setError('root', { message: err.message || 'An error occurred signing in' });
+            console.log('Sign up error: ', err);
+            if (err.code === 'auth/invalid-phone-number') {
+                setError('phone', { message: 'Invalid phone number format' });
+            } else {
+                setError('root', { message: err.message || 'An error occurred sending OTP' });
+            }
         } finally {
             setIsLoading(false);
         }
@@ -128,14 +128,15 @@ export default function SignInScreen() {
                         </View>
 
                         <View style={styles.headerTitleContainer}>
-                            <Text style={styles.headerTitle}>Sign In</Text>
-                            <Text style={styles.headerSubtitle}>Enter your phone and password to sign in</Text>
+                            <Text style={styles.headerTitle}>Sign Up</Text>
+                            <Text style={styles.headerSubtitle}>Create an account to get started</Text>
                         </View>
                     </View>
 
                     {/* Form Content Area */}
                     <View style={styles.formContainer}>
                         <View style={styles.form}>
+                            {/* Phone Input */}
                             <View style={styles.inputWrapper}>
                                 <Text style={styles.label}>Phone Number</Text>
                                 <Controller
@@ -183,6 +184,7 @@ export default function SignInScreen() {
                                 />
                             </View>
 
+                            {/* Password Input */}
                             <View style={styles.inputWrapper}>
                                 <Text style={styles.label}>Password</Text>
                                 <Controller
@@ -239,6 +241,64 @@ export default function SignInScreen() {
                                 />
                             </View>
 
+                            {/* Confirm Password Input */}
+                            <View style={styles.inputWrapper}>
+                                <Text style={styles.label}>Confirm Password</Text>
+                                <Controller
+                                    control={control}
+                                    name="confirmPassword"
+                                    render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => {
+                                        const isValid = (value || '').length >= 6 &&
+                                            /[A-Z]/.test(value || '') &&
+                                            /[a-zA-Z]/.test(value || '') &&
+                                            /[^a-zA-Z0-9]/.test(value || '') &&
+                                            value === watchPassword;
+                                        return (
+                                            <View style={styles.inputContainer}>
+                                                <View
+                                                    style={[
+                                                        styles.inputFieldContainer,
+                                                        {
+                                                            borderColor: error ? '#EF4444' : (isValid ? '#16A34A' : '#E5E7EB'),
+                                                            backgroundColor: '#F9FAFB'
+                                                        }
+                                                    ]}
+                                                >
+                                                    <Ionicons name="lock-closed-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
+                                                    <TextInput
+                                                        style={styles.passwordInput}
+                                                        placeholder="••••••••"
+                                                        placeholderTextColor="#9CA3AF"
+                                                        secureTextEntry={!showConfirmPassword}
+                                                        value={value}
+                                                        onChangeText={onChange}
+                                                        onBlur={onBlur}
+                                                    />
+                                                    <Pressable
+                                                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                        style={{ padding: 4, marginRight: 4 }}
+                                                    >
+                                                        <Ionicons
+                                                            name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'}
+                                                            size={18}
+                                                            color="#6B7280"
+                                                        />
+                                                    </Pressable>
+                                                    <View style={styles.indicatorContainer}>
+                                                        {isValid ? (
+                                                            <Ionicons name="checkmark-circle" size={20} color="#16A34A" />
+                                                        ) : (
+                                                            <View style={styles.dotIndicator} />
+                                                        )}
+                                                    </View>
+                                                </View>
+                                                {error && <Text style={styles.errorText}>{error.message}</Text>}
+                                            </View>
+                                        );
+                                    }}
+                                />
+                            </View>
+
                             {errors.root && (
                                 <Text style={styles.rootErrorText}>{errors.root.message}</Text>
                             )}
@@ -249,21 +309,21 @@ export default function SignInScreen() {
                                     (pressed || isLoading) && styles.primaryButtonPressed,
                                     isLoading && styles.primaryButtonDisabled
                                 ]}
-                                onPress={handleSubmit(onSignIn)}
+                                onPress={handleSubmit(onSignUp)}
                                 disabled={isLoading}
                             >
                                 {isLoading ? (
                                     <ActivityIndicator size="small" color="#FFFFFF" />
                                 ) : (
-                                    <Text style={styles.primaryButtonText}>Sign In</Text>
+                                    <Text style={styles.primaryButtonText}>Send Verification Code</Text>
                                 )}
                             </Pressable>
 
                             <View style={styles.redirectContainer}>
-                                <Text style={styles.redirectText}>Don't have an account? </Text>
-                                <Link href="/(auth)/sign-up" asChild>
+                                <Text style={styles.redirectText}>Already have an account? </Text>
+                                <Link href="/(auth)/sign-in" asChild>
                                     <Pressable>
-                                        <Text style={styles.redirectLinkText}>Sign Up</Text>
+                                        <Text style={styles.redirectLinkText}>Sign In</Text>
                                     </Pressable>
                                 </Link>
                             </View>
@@ -406,30 +466,6 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 16,
         fontWeight: '700',
-    },
-    forgotPasswordButton: {
-        alignSelf: 'center',
-        paddingVertical: 4,
-    },
-    forgotPasswordText: {
-        color: '#0B5A3E',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    dividerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginVertical: 10,
-    },
-    dividerLine: {
-        flex: 1,
-        height: 1,
-        backgroundColor: '#E5E7EB',
-    },
-    dividerText: {
-        marginHorizontal: 12,
-        color: '#9CA3AF',
-        fontSize: 14,
     },
     redirectContainer: {
         flexDirection: 'row',

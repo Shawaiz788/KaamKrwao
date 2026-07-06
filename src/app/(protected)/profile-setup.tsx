@@ -33,6 +33,9 @@ export default function ProfileSetupScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const isNameValid = fullName.trim().length >= 3;
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
   const handleGoToHAAN = async () => {
     if (!user) return;
 
@@ -115,7 +118,12 @@ export default function ProfileSetupScreen() {
             {/* Full Name Input */}
             <View style={styles.inputWrapper}>
               <Text style={styles.label}>Full Name</Text>
-              <View style={styles.inputFieldContainer}>
+              <View
+                style={[
+                  styles.inputFieldContainer,
+                  isNameValid && { borderColor: '#16A34A' }
+                ]}
+              >
                 <Ionicons name="person-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
                 <TextInput
                   style={styles.textInput}
@@ -123,17 +131,30 @@ export default function ProfileSetupScreen() {
                   placeholderTextColor="#9CA3AF"
                   value={fullName}
                   onChangeText={(val) => {
-                    setFullName(val);
+                    const clean = val.replace(/[0-9]/g, '');
+                    setFullName(clean);
                     if (errorMsg) setErrorMsg(null);
                   }}
                 />
+                <View style={styles.indicatorContainer}>
+                  {isNameValid ? (
+                    <Ionicons name="checkmark-circle" size={20} color="#16A34A" />
+                  ) : (
+                    <View style={styles.dotIndicator} />
+                  )}
+                </View>
               </View>
             </View>
 
             {/* Email Input */}
             <View style={styles.inputWrapper}>
               <Text style={styles.label}>Email Address</Text>
-              <View style={styles.inputFieldContainer}>
+              <View
+                style={[
+                  styles.inputFieldContainer,
+                  isEmailValid && { borderColor: '#16A34A' }
+                ]}
+              >
                 <Ionicons name="mail-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
                 <TextInput
                   style={styles.textInput}
@@ -147,6 +168,13 @@ export default function ProfileSetupScreen() {
                     if (errorMsg) setErrorMsg(null);
                   }}
                 />
+                <View style={styles.indicatorContainer}>
+                  {isEmailValid ? (
+                    <Ionicons name="checkmark-circle" size={20} color="#16A34A" />
+                  ) : (
+                    <View style={styles.dotIndicator} />
+                  )}
+                </View>
               </View>
             </View>
 
@@ -503,5 +531,18 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  indicatorContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 24,
+    height: 24,
+    marginLeft: 8,
+  },
+  dotIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#9CA3AF',
   },
 });
