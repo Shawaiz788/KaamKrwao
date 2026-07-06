@@ -28,7 +28,7 @@ const Illustration1 = () => (
   <View style={styles.illustrationContainer}>
     {/* Background glowing shape */}
     <View style={styles.glowCircle} />
-    
+
     {/* Large House Outline (geometric backdrop) */}
     <View style={styles.houseOutline}>
       <Ionicons name="home-outline" size={170} color="rgba(16, 185, 129, 0.08)" />
@@ -152,7 +152,7 @@ const Illustration3 = () => (
       </View>
       <Text style={styles.requestTitle}>AC Maintenance & Repair</Text>
       <Text style={styles.requestLocation}>Sector G-11 • Zainab A.</Text>
-      
+
       <View style={styles.acceptMockBtn}>
         <Text style={styles.acceptMockBtnText}>Accept Request</Text>
       </View>
@@ -165,7 +165,7 @@ const Illustration3 = () => (
         <Text style={styles.walletLabel}>My Wallet</Text>
       </View>
       <Text style={styles.walletAmount}>Rs. 24,500</Text>
-      
+
       {/* Micro-sparkline columns */}
       <View style={styles.sparklineRow}>
         <View style={[styles.sparklineBar, { height: 8 }]} />
@@ -306,7 +306,7 @@ export default function OnboardingScreen1() {
       {/* Main Container / Hero Card */}
       <View style={styles.cardWrapper}>
         <View style={[styles.heroCard, { backgroundColor: getCardBgColor() }]}>
-          
+
           {/* Animated Card Content (Smooth slide and fade transition) */}
           {page === 1 && (
             <Animated.View
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
   cardWrapper: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingVertical: 8,
   },
   heroCard: {
@@ -435,12 +435,9 @@ const styles = StyleSheet.create({
     elevation: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.5)',
-    flex: 1,
-    justifyContent: 'space-between',
   },
   innerCard: {
-    flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
   },
   illustrationContainer: {
     height: height * 0.33,
