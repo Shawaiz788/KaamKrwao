@@ -285,9 +285,13 @@ export default function OnboardingScreen1() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#0F5C43" />
 
-      {/* Elegant Header with Segmented Progress */}
+      {/* Elegant Header with Back Button and Segmented Progress on Right */}
       <View style={styles.header}>
-        <View style={styles.progressContainer}>
+        <Pressable style={styles.headerBackBtn} onPress={handleBack} accessibilityLabel="Go back" hitSlop={12}>
+          <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+        </Pressable>
+
+        <View style={styles.headerProgressContainer}>
           <View style={styles.progressSegmentTrack}>
             <Animated.View style={[styles.progressSegmentFill, animatedProgressStyle1]} />
           </View>
@@ -298,9 +302,6 @@ export default function OnboardingScreen1() {
             <Animated.View style={[styles.progressSegmentFill, animatedProgressStyle3]} />
           </View>
         </View>
-        <Pressable style={styles.skipBtn} onPress={handleSkip} hitSlop={12}>
-          <Text style={styles.skipText}>Skip</Text>
-        </Pressable>
       </View>
 
       {/* Main Container / Hero Card */}
@@ -355,9 +356,13 @@ export default function OnboardingScreen1() {
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
-        <Pressable style={styles.backBtn} onPress={handleBack} accessibilityLabel="Go back">
-          <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-        </Pressable>
+        {page < 3 ? (
+          <Pressable style={styles.bottomSkipBtn} onPress={handleSkip} hitSlop={12}>
+            <Text style={styles.bottomSkipText}>Skip</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.bottomSkipPlaceholder} />
+        )}
 
         <Pressable style={styles.nextBtnWrapper} onPress={handleNext}>
           <LinearGradient
@@ -388,36 +393,32 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 8,
   },
-  progressContainer: {
+  headerBackBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerProgressContainer: {
     flexDirection: 'row',
     flex: 1,
-    height: 3,
-    gap: 6,
-    marginRight: 24,
+    height: 5,
+    gap: 8,
+    marginLeft: 24,
   },
   progressSegmentTrack: {
     flex: 1,
-    height: 3,
+    height: 5,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 2,
+    borderRadius: 3,
     overflow: 'hidden',
   },
   progressSegmentFill: {
     height: '100%',
     backgroundColor: '#10B981',
     borderRadius: 2,
-  },
-  skipBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  skipText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.3,
   },
   cardWrapper: {
     flex: 1,
@@ -912,13 +913,24 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 12 : 24,
     paddingTop: 12,
   },
-  backBtn: {
-    width: 48,
+  bottomSkipBtn: {
     height: 48,
     borderRadius: 24,
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 20,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  bottomSkipText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  bottomSkipPlaceholder: {
+    width: 68,
   },
   nextBtnWrapper: {
     flex: 1,

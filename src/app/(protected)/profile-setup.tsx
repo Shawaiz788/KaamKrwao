@@ -18,9 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createUser } from '../../../api/user';
 import { useMutation } from '@tanstack/react-query';
-import { createCountry, createCity, createArea, createLocation } from '../../../api/location';
+import { createCountry, createCity, createArea, createLocation, getCountries, getCities, getCitiesByCountry, getAreasByCity, City } from '../../../api/location';
 
-type City = 'Lahore' | 'Karachi' | 'Islamabad';
 type Role = 'client' | 'provider';
 
 export default function ProfileSetupScreen() {
@@ -32,10 +31,39 @@ export default function ProfileSetupScreen() {
   // Component States
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [city, setCity] = useState<City>('Lahore');
+  const [citiesList, setCitiesList] = useState<City[]>([]);
+  const [selectedCity, setSelectedCity] = useState<City | null>(null);
+  const [isLoadingCities, setIsLoadingCities] = useState(false);
   const [role, setRole] = useState<Role>('client');
+  const [gender, setGender] = useState<string>('other');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    const loadCities = async () => {
+      setIsLoadingCities(true);
+      try {
+        const fetchedCities = await getCities();
+        setCitiesList(fetchedCities);
+        if (fetchedCities.length > 0) {
+          setSelectedCity(fetchedCities[0]);
+        }
+      } catch (err) {
+        console.error('Error loading cities:', err);
+        const fallbackCities: City[] = [
+          { id: 2, name: 'Lahore' },
+          { id: 4, name: 'Karachi' },
+          { id: 3, name: 'Islamabad' }
+        ];
+        setCitiesList(fallbackCities);
+        setSelectedCity(fallbackCities[0]);
+      } finally {
+        setIsLoadingCities(false);
+      }
+    };
+
+    loadCities();
+  }, []);
 
   const isNameValid = fullName.trim().length >= 3;
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -43,6 +71,11 @@ export default function ProfileSetupScreen() {
   const addMutation = useMutation({
     mutationFn: createUser,
   })
+
+
+
+
+
   const CreateUser = async () => {
     if (!user)
       return null;
@@ -52,54 +85,29 @@ export default function ProfileSetupScreen() {
     const first_name = nameParts[0] || '';
     const last_name = nameParts.slice(1).join(' ') || '';
 
-    // Map role to user_type
-    const user_type = {
-      id: role === 'client' ? 1 : 2,
-      name: role,
-    };
+    // Map role to  (Viewer and Worker in the database)
+    const usertype_id = role === 'client' ? 1 : 2;
 
-    // 1. Post Country
-    const countryData = await createCountry('Pakistan');
-    const countryId = countryData.id;
 
-    // 2. Post City
-    const cityData = await createCity(countryId, city);
-    const cityId = cityData.id;
+    if (!selectedCity) {
+      throw new Error('Please select a city.');
+    }
+    const cityId = selectedCity.id;
+    const cityName = selectedCity.name;
 
-    // 3. Post Area
-    const areaData = await createArea(cityId, 'Default Area');
-    const areaId = areaData.id;
 
-    // 4. Post Location
-    const locationData = await createLocation({
-      house_number: 0,
-      street_number: '',
-      landmark: '',
-      pin_location: '',
-      zip_code: 0,
-      area: {
-        id: areaId,
-        name: 'Default Area',
-      },
-      city: {
-        id: cityId,
-        name: city,
-      },
-      country: {
-        id: countryId,
-        name: 'Pakistan',
-      },
-    });
 
-    // Construct the backend User object (omitting id and overall_rating)
+
     const newUser = {
       first_name,
       last_name,
       phone_number: user.phoneNumber || '',
       email: email.trim(),
-      gender: 'other', // Default value since it's not collected on this screen
-      user_type,
-      location: locationData,
+      gender,
+      usertype_id: usertype_id,
+      location_id: 1,
+      password: "MyPassword2000@",
+      overall_rating: 5,
     };
 
     return await addMutation.mutateAsync(newUser);
@@ -129,12 +137,16 @@ export default function ProfileSetupScreen() {
     setIsLoading(true);
 
     try {
-      // Update Firebase User Profile Display Name
+      // 1. Call the backend API FIRST to register the user in Postgres
+      console.log('[profile-setup] Starting CreateUser chain...');
+      await CreateUser();
+
+      // 2. Update Firebase User Profile Display Name ONLY AFTER database registration succeeds
       await updateProfile(user, {
         displayName: fullName.trim(),
       });
 
-      // Reload user in context to update state
+      // 3. Reload user in context to update state
       await reloadUser();
 
       console.log('Saved locally / logged profile parameters:', {
@@ -142,22 +154,16 @@ export default function ProfileSetupScreen() {
         email: email.trim(),
         fullName: fullName.trim(),
         phone: user.phoneNumber,
-        city,
+        city: selectedCity?.name,
         role,
+        gender,
         password: params.password,
       });
-      try {
-        await CreateUser()
-
-      } catch (e) {
-        console.log('Error while creating user:', e)
-        router.replace('/')
-      }
 
       console.log('Profile setup saved successfully!');
       router.replace('/home');
     } catch (err: any) {
-      console.log('Error saving profile setup: ', err);
+      console.error('[profile-setup] Profile setup failed:', err);
       setErrorMsg(err?.message || 'Failed to save profile. Please try again.');
     } finally {
       setIsLoading(false);
@@ -169,7 +175,7 @@ export default function ProfileSetupScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#0B5A3E" />
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardAvoid}
       >
         <ScrollView
@@ -258,31 +264,79 @@ export default function ProfileSetupScreen() {
             {/* City Selector */}
             <View style={styles.inputWrapper}>
               <Text style={styles.label}>Select your City</Text>
-              <View style={styles.gridContainer}>
-                {(['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi'] as City[]).map((cityName) => (
-                  <Pressable
-                    key={cityName}
-                    style={[
-                      styles.gridCard,
-                      city === cityName ? styles.gridCardActive : styles.gridCardInactive,
-                    ]}
-                    onPress={() => setCity(cityName)}
-                  >
-                    <Ionicons
-                      name="location-outline"
-                      size={20}
-                      color={city === cityName ? '#FFFFFF' : '#4B5563'}
-                    />
-                    <Text
+              {isLoadingCities ? (
+                <View style={{ paddingVertical: 12 }}>
+                  <ActivityIndicator color="#0F5C43" size="small" />
+                </View>
+              ) : (
+                <View style={styles.gridContainer}>
+                  {citiesList.map((c) => (
+                    <Pressable
+                      key={c.id}
                       style={[
-                        styles.gridCardText,
-                        city === cityName ? styles.gridCardTextActive : styles.gridCardTextInactive,
+                        styles.gridCard,
+                        selectedCity?.id === c.id ? styles.gridCardActive : styles.gridCardInactive,
                       ]}
+                      onPress={() => setSelectedCity(c)}
                     >
-                      {cityName}
-                    </Text>
-                  </Pressable>
-                ))}
+                      <Ionicons
+                        name="location-outline"
+                        size={20}
+                        color={selectedCity?.id === c.id ? '#FFFFFF' : '#4B5563'}
+                      />
+                      <Text
+                        style={[
+                          styles.gridCardText,
+                          selectedCity?.id === c.id ? styles.gridCardTextActive : styles.gridCardTextInactive,
+                        ]}
+                      >
+                        {c.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            {/* Gender Selector */}
+            <View style={styles.inputWrapper}>
+              <Text style={styles.label}>Select your Gender</Text>
+              <View style={styles.gridContainer}>
+                {(['Male', 'Female', 'Other'] as string[]).map((genderName) => {
+                  const isSelected = gender.toLowerCase() === genderName.toLowerCase();
+                  return (
+                    <Pressable
+                      key={genderName}
+                      style={[
+                        styles.gridCard,
+                        isSelected ? styles.gridCardActive : styles.gridCardInactive,
+                        { width: '30.5%' }
+                      ]}
+                      onPress={() => setGender(genderName.toLowerCase())}
+                    >
+                      <Ionicons
+                        name={
+                          genderName === 'Male'
+                            ? 'male'
+                            : genderName === 'Female'
+                            ? 'female'
+                            : 'people'
+                        }
+                        size={18}
+                        color={isSelected ? '#FFFFFF' : '#4B5563'}
+                      />
+                      <Text
+                        style={[
+                          styles.gridCardText,
+                          isSelected ? styles.gridCardTextActive : styles.gridCardTextInactive,
+                          { fontSize: 13 }
+                        ]}
+                      >
+                        {genderName}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
             </View>
 
@@ -363,23 +417,28 @@ export default function ProfileSetupScreen() {
             </View>
 
             {/* Save Button */}
-            <Pressable
-              style={({ pressed }) => [
-                styles.saveButton,
-                pressed && styles.saveButtonPressed,
-                isLoading && styles.saveButtonDisabled,
-              ]}
-              onPress={handleGoToHome}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.saveButtonText}>Finish & Continue</Text>
-              )}
-            </Pressable>
+
           </View>
         </ScrollView>
+
+        {/* Fixed Footer with Save Button */}
+        <View style={styles.footer}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.saveButton,
+              pressed && styles.saveButtonPressed,
+              isLoading && styles.saveButtonDisabled,
+            ]}
+            onPress={handleGoToHome}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.saveButtonText}>Finish & Continue</Text>
+            )}
+          </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -582,13 +641,20 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: '#0B5A3E',
   },
+  footer: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 8,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
   saveButton: {
     backgroundColor: '#D97706',
     height: 52,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 16,
     shadowColor: '#D97706',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,

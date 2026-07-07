@@ -1,4 +1,5 @@
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const BASE_URL = process.env.EXPO_PUBLIC_LOCATION_API_URL;
+const API_URL = BASE_URL ? BASE_URL.replace(/\/$/, '') : '';
 
 export interface Country {
     id: number;

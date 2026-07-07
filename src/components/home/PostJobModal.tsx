@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAreasByCity, Area } from '../../../api/location';
 
 const { width } = Dimensions.get('window');
@@ -62,6 +63,7 @@ export default function PostJobModal({
   initialCategory,
   onSuccess,
 }: PostJobModalProps) {
+  const insets = useSafeAreaInsets();
   const [step, setStep] = useState(1);
 
   // Form Fields
@@ -179,14 +181,14 @@ export default function PostJobModal({
             </View>
             <Text style={styles.successTitle}>Job Posted Successfully!</Text>
             <Text style={styles.successSub}>
-              HAAN pros will respond to your request within 10 minutes.
+              KaamKarwao pros will respond to your request within 10 minutes.
             </Text>
             <ActivityIndicator size="small" color="#FFFFFF" style={{ marginTop: 20 }} />
           </View>
         ) : (
           <>
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
               <View style={styles.headerRow}>
                 <Pressable onPress={handleBack} style={styles.backBtn}>
                   <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
@@ -447,7 +449,7 @@ export default function PostJobModal({
                       style={{ marginRight: 10 }}
                     />
                     <Text style={styles.infoBannerText}>
-                      Your job will be shown to HAAN Verified pros who respond within 10 minutes.
+                      Your job will be shown to KaamKarwao Verified pros who respond within 10 minutes.
                       Only pay after the job is done.
                     </Text>
                   </View>
@@ -456,7 +458,7 @@ export default function PostJobModal({
             </ScrollView>
 
             {/* Bottom Button Row */}
-            <View style={styles.footer}>
+            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
               {step < 3 ? (
                 <Pressable
                   style={[
@@ -489,7 +491,6 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#082C18',
-    paddingTop: Platform.OS === 'ios' ? 45 : 15,
     paddingBottom: 15,
     paddingHorizontal: 20,
   },

@@ -1,4 +1,5 @@
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_URL = BASE_URL ? BASE_URL.replace(/\/$/, '') : '';
 import { City, Country, Area, UserLocation } from './location';
 
 export interface UserType {
@@ -13,9 +14,10 @@ export interface User {
     phone_number: string;
     email: string;
     gender: string;
+    password: string;
     overall_rating?: number;
-    user_type: UserType;
-    location: UserLocation;
+    usertype_id: number;
+    location_id: number;
 }
 
 export const getUsers = async (): Promise<User[]> => {
@@ -24,15 +26,29 @@ export const getUsers = async (): Promise<User[]> => {
     return result;
 };
 
-export const createUser = async (user: Omit<User, 'id' | 'overall_rating'>): Promise<User> => {
-    const result = await fetch(`${API_URL}/app/register/user/`, {
+export const createUser = async (user: Omit<User, 'id'>): Promise<User> => {
+    console.log('[createUser API] Sending payload:', JSON.stringify(user, null, 2));
+    const response = await fetch(`${API_URL}/app/register/user/`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify(user),
     });
-    return result.json();
+
+    const responseText = await response.text();
+    console.log('[createUser API] Response Status:', response.status);
+    console.log('[createUser API] Response Body:', responseText);
+
+    if (!response.ok) {
+        throw new Error(`Failed to create user. Status: ${response.status}. Response: ${responseText}`);
+    }
+
+    try {
+        return JSON.parse(responseText);
+    } catch (e) {
+        throw new Error(`Failed to parse user response as JSON. Content: ${responseText}`);
+    }
 };
 
 export const updateUser = async (user: User): Promise<User> => {

@@ -119,7 +119,7 @@ export default function SignInScreen() {
                                 <View style={styles.logoIconBg}>
                                     <Ionicons name="checkmark-sharp" size={20} color="#FFFFFF" />
                                 </View>
-                                <Text style={styles.logoText}>HAAN</Text>
+                                <Text style={styles.logoText}>KaamKarwao</Text>
                             </View>
 
                             <Pressable style={styles.langSelector}>

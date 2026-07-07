@@ -101,7 +101,10 @@ export default function VerifyScreen() {
         router.replace({
           pathname: '/profile-setup',
           params: {
-            ...params
+            phoneNumber: params.phoneNumber || '',
+            verificationId: params.verificationId || '',
+            password: params.password || '',
+            flowType: params.flowType || '',
           }
         });
       } else {

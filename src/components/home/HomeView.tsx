@@ -132,7 +132,7 @@ export default function HomeView({
               <View style={styles.checkmarkBadge}>
                 <Ionicons name="checkmark" size={14} color="#082C18" />
               </View>
-              <Text style={styles.brandName}>HAAN</Text>
+              <Text style={styles.brandName}>KaamKarwao</Text>
             </View>
           </View>
 
