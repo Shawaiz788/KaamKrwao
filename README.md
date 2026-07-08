@@ -1,6 +1,6 @@
 # 🔐 Production-Ready Authentication & Location Flow for Expo & React Native
 
-A premium, secure, and modern authentication workflow template built for **Expo (SDK 54)** and **React Native**. Features an integrated **Clerk Auth** setup for session management, and a robust **Location Resolution System** incorporating saved address profiles, real-time GPS coordinate fetching, and an interactive Leaflet WebView map picker.
+A premium, secure, and modern authentication workflow template built for **Expo (SDK 54)** and **React Native**. Features a custom secure session system utilizing local encrypted storage, combined with a robust **Location Resolution System** incorporating saved address profiles, real-time GPS coordinate fetching, and an interactive Leaflet WebView map picker.
 
 ---
 
@@ -12,7 +12,7 @@ Below are the core libraries and tools driving this template:
 | :--- | :--- | :--- |
 | **Expo SDK 54** | ![Expo](https://img.shields.io/badge/Expo-54-000000?style=for-the-badge&logo=expo&logoColor=white) | Cross-platform framework & dev tools |
 | **React Native** | ![React Native](https://img.shields.io/badge/React_Native-0.81.5-61DAFB?style=for-the-badge&logo=react&logoColor=black) | Native framework components |
-| **Clerk Auth** | ![Clerk](https://img.shields.io/badge/Clerk-Authentication-6C47FF?style=for-the-badge&logo=clerk&logoColor=white) | Identity provider, MFA, session manager, & SSO |
+| **Expo Secure Store** | ![Secure Store](https://img.shields.io/badge/Expo_SecureStore-Session-000000?style=for-the-badge&logo=expo&logoColor=white) | Encrypted storage wrapper for user session persistence |
 | **TypeScript** | ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white) | Static typing and interface enforcement |
 | **React Hook Form** | ![React Hook Form](https://img.shields.io/badge/React%20Hook%20Form-7.80.0-EC5990?style=for-the-badge&logo=reacthookform&logoColor=white) | Form state & submission handler |
 | **Zod Schema** | ![Zod](https://img.shields.io/badge/Zod-Validation-3E67B1?style=for-the-badge&logo=zod&logoColor=white) | Type-safe form verification and constraints |
@@ -23,11 +23,11 @@ Below are the core libraries and tools driving this template:
 
 ## 🚀 Key Features
 
-*   **⚡ Clerk Auth Provider Integration:** Session sync across the app using `ClerkProvider` and the native token storage adapter.
-*   **🌐 Seamless Google SSO:** Pre-warmed browser sessions using `expo-web-browser` and Clerk's `useSSO` API for secure, fast OAuth.
-*   **🔒 Secure Session Storage:** Persistent local storage of user tokens via `expo-secure-store` to keep users logged in.
+*   **⚡ Custom Secure Session Management:** App-wide session syncing using a custom React `AuthContext` persisting credentials securely in Expo `SecureStore`.
+*   **🔒 Local Credentials Authentication:** Dedicated registration (`/app/register/user/`) and login (`/app/user/login/`) credentials workflows linked directly to the backend.
+*   **🌐 Pre-Structured Google Sign-In:** Dedicated layout component (`SignInWith`) pre-wired for Google Authentication integration.
 *   **🚦 Guarded Route Layouts:** File-based navigation structure using `expo-router` split into public/auth `(auth)` and secure `(protected)` router groups.
-*   **📝 Strong Form Validation:** Schema-validated input controls with realtime constraint checking, mapping Clerk API errors to specific form fields.
+*   **📝 Strong Form Validation:** Schema-validated input controls with realtime constraint checking, mapping API response constraints to form fields.
 *   **📍 Location Profile Auto-Redirection:** Automatically checks if a user has a saved location profile and offers to pre-fill or post a job with their saved location directly.
 *   **🗺️ Interactive Leaflet Map Picker:** OpenStreetMap inside a React Native `WebView`. Supports Nominatim place search, marker dragging, and coordinate confirmation via `postMessage`.
 *   **📡 Real-time GPS Locate:** Accesses device GPS using `expo-location` to automatically pre-fill coordinates with maximum accuracy.
@@ -49,7 +49,7 @@ graph TD
     
     %% Sign Up & Verification Flow
     E --> F[sign-up.tsx Screen]
-    F -->|Submit Details| G[Clerk Creates Account]
+    F -->|Submit Details| G[Backend Creates Account]
     G -->|Send Verification Code| H[Redirect to verify.tsx]
     H -->|Submit OTP Code| I[Verify Code & Activate Session]
     I -->|Redirect| J[protected/index HomeScreen]
@@ -57,8 +57,8 @@ graph TD
     %% Sign In & SSO Flow
     D --> K[sign-in.tsx Screen]
     K --> L{Select Login Method}
-    L -- Email & Password --> M[Clerk Credential Login]
-    L -- Google SSO --> N[SSO Flow via Expo WebBrowser]
+    L -- Phone & Password --> M[Backend Credential Login]
+    L -- Google SSO --> N[Google SSO Integration]
     
     M -- Success --> J
     N -- Success --> J
@@ -87,7 +87,7 @@ graph TD
 ## 📁 Repository Structure
 
 ```
-├── .env                        # Development environment credentials (Clerk Publishable Key)
+├── .env                        # Development environment credentials (API Base URL)
 ├── app.json                    # Expo config (SDK version, plugins, bundle identifier)
 ├── package.json                # Project dependencies, libraries, and script actions
 └── src/
@@ -95,12 +95,12 @@ graph TD
     │   ├── (auth)/             # Auth stack (redirects to '/' if session is active)
     │   │   ├── _layout.tsx     # Interceptor & Stack navigation
     │   │   ├── sign-in.tsx     # Sign-in form with Zod schema validation & Google SSO trigger
-    │   │   ├── sign-up.tsx     # Sign-up form, Clerk account generation, redirect to verify
+    │   │   ├── sign-up.tsx     # Sign-up form, account generation, redirect to verify
     │   │   └── verify.tsx      # Email verification screen for code verification
     │   ├── (protected)/        # Protected stack (redirects to '/sign-in' if session is inactive)
     │   │   ├── _layout.tsx     # Router guard checking session status
     │   │   └── index.tsx       # HomeScreen (Private workspace/dashboard)
-    │   ├── _layout.tsx         # Root layout wrapping the app in ClerkProvider with token cache
+    │   ├── _layout.tsx         # Root layout wrapping the app in AuthProvider context
     │   └── index.tsx           # Entry point / welcome redirection screen
     ├── components/             # Reusable UI Custom Components
     │   ├── CustomButton.tsx    # Styled wrapper for native Pressable element
@@ -119,7 +119,15 @@ graph TD
 
 ### 🔒 Core Layout & Guards
 
-1.  **Root Layout (`src/app/_layout.tsx`):** Wraps the entire application with the Clerk authentication context. It initiates the session manager with a secure token cache that writes directly to the native `SecureStore` instead of memory.
+1.  **Root Layout (`src/app/_layout.tsx`):** Wraps the entire application with the custom `AuthProvider` context. It checks the native `SecureStore` on boot to automatically log in the user:
+    ```tsx
+    import { AuthProvider } from '../provider/auth';
+    
+    // ...
+    <AuthProvider>
+        <Slot />
+    </AuthProvider>
+    ```
 2.  **Protected Route Guard (`src/app/(protected)/_layout.tsx`):** Assures that any view nested under `(protected)` cannot be mounted unless the user is signed in. If the session expires or is missing, it immediately redirects them to `/sign-in`.
 
 ### 📍 Interactive Location Flow
@@ -171,9 +179,7 @@ Follow these steps to run the authentication & location flow locally:
 
 ### 1. Prerequisite Setup
 
-*   Create a free account at [Clerk](https://clerk.com).
-*   Create a new application in your Clerk Dashboard and enable the **Email / Password** and **Google SSO** sign-in providers.
-*   Copy your **Publishable Key**.
+*   Make sure you have a running backend server instance providing registration (`/app/register/user/`) and login (`/app/user/login/`) endpoints.
 
 ### 2. Clone & Install Dependencies
 
@@ -186,12 +192,14 @@ npm install
 
 ### 3. Environment Variables Configuration
 
-Create a `.env` file in the root directory (already populated locally) and declare your Clerk Publishable Key:
+Create a `.env` file in the root directory (already populated locally) and declare your Backend API Base URL:
 
 ```env
-EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key_here
 EXPO_PUBLIC_API_URL=your_backend_api_url_here
 ```
+
+> [!IMPORTANT]
+> The API URL variable must be prefixed with `EXPO_PUBLIC_` to be exposed to your application bundle during building/runtime.
 
 ### 4. Run the Dev Server
 
@@ -212,5 +220,5 @@ From here, you can:
 
 ## 🧑‍💻 Technical Notes
 
-*   **OAuth Scheme Configuration:** When deploying to production standalone apps, configure the native redirection URL scheme (defined under `expo.scheme` in `app.json`) within your Clerk Dashboard under **Social Connections** ➡️ **Google**.
+*   **Session Helper:** Persists user authentication sessions across app cycles via `SecureStore` loading/saving state in the global `AuthProvider` context.
 *   **Saved Locations Resolver:** The location creation pipeline automatically handles lookup/creation of countries, cities, and areas in cascading order (`getOrCreateLocationChain`), resolving database IDs and returning a unified `locationId` used to link jobs.
