@@ -1,12 +1,12 @@
-# 🔐 Production-Ready Authentication Flow for Expo & React Native
+# 🔐 Production-Ready Authentication & Location Flow for Expo & React Native
 
-A premium, secure, and modern authentication workflow template built for **Expo (SDK 54)** and **React Native**. Integrated with **Clerk Auth** for state-of-the-art session management, standard credentials login, and Single Sign-On (SSO).
+A premium, secure, and modern authentication workflow template built for **Expo (SDK 54)** and **React Native**. Features an integrated **Clerk Auth** setup for session management, and a robust **Location Resolution System** incorporating saved address profiles, real-time GPS coordinate fetching, and an interactive Leaflet WebView map picker.
 
 ---
 
 ## 🛠️ Technology Stack & Integrations
 
-Below are the core libraries and tools driving this secure authentication flow:
+Below are the core libraries and tools driving this template:
 
 | Service / Tool | Tech Badges | Purpose |
 | :--- | :--- | :--- |
@@ -14,8 +14,10 @@ Below are the core libraries and tools driving this secure authentication flow:
 | **React Native** | ![React Native](https://img.shields.io/badge/React_Native-0.81.5-61DAFB?style=for-the-badge&logo=react&logoColor=black) | Native framework components |
 | **Clerk Auth** | ![Clerk](https://img.shields.io/badge/Clerk-Authentication-6C47FF?style=for-the-badge&logo=clerk&logoColor=white) | Identity provider, MFA, session manager, & SSO |
 | **TypeScript** | ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white) | Static typing and interface enforcement |
-| **React Hook Form** | ![React Hook Form](https://img.shields.io/badge/React%20Hook%20Form-7.80.0-EC5990?style=for-the-badge&logo=reacthookform&logoColor=white) | Lightweight form state & submission handler |
+| **React Hook Form** | ![React Hook Form](https://img.shields.io/badge/React%20Hook%20Form-7.80.0-EC5990?style=for-the-badge&logo=reacthookform&logoColor=white) | Form state & submission handler |
 | **Zod Schema** | ![Zod](https://img.shields.io/badge/Zod-Validation-3E67B1?style=for-the-badge&logo=zod&logoColor=white) | Type-safe form verification and constraints |
+| **Expo Location** | ![Expo Location](https://img.shields.io/badge/Expo_Location-GPS-008080?style=for-the-badge&logo=expo&logoColor=white) | Real-time GPS coordinate fetching |
+| **Leaflet & WebView** | ![WebView](https://img.shields.io/badge/Leaflet-WebView-10B981?style=for-the-badge&logo=leaflet&logoColor=white) | Interactive map picker (zero API keys required) |
 
 ---
 
@@ -26,12 +28,15 @@ Below are the core libraries and tools driving this secure authentication flow:
 *   **🔒 Secure Session Storage:** Persistent local storage of user tokens via `expo-secure-store` to keep users logged in.
 *   **🚦 Guarded Route Layouts:** File-based navigation structure using `expo-router` split into public/auth `(auth)` and secure `(protected)` router groups.
 *   **📝 Strong Form Validation:** Schema-validated input controls with realtime constraint checking, mapping Clerk API errors to specific form fields.
+*   **📍 Location Profile Auto-Redirection:** Automatically checks if a user has a saved location profile and offers to pre-fill or post a job with their saved location directly.
+*   **🗺️ Interactive Leaflet Map Picker:** OpenStreetMap inside a React Native `WebView`. Supports Nominatim place search, marker dragging, and coordinate confirmation via `postMessage`.
+*   **📡 Real-time GPS Locate:** Accesses device GPS using `expo-location` to automatically pre-fill coordinates with maximum accuracy.
 
 ---
 
 ## 📐 Architecture & Routing Flow
 
-The diagram below outlines the navigation flow and access guards implemented in the app:
+The diagram below outlines the navigation flow, access guards, and location picker states:
 
 ```mermaid
 graph TD
@@ -61,10 +66,20 @@ graph TD
     %% Protected Route Guards
     B -- Yes --> J
     
-    %% Direct access attempt to protected route
-    C -->|Try to open protected routes| O{Check Authentication}
-    O -- Signed In --> J
-    O -- Not Signed In --> K
+    %% Post Job Location Flow
+    J --> P[Open Post Job Modal]
+    P --> Q{Has Saved Location ID?}
+    Q -- Yes --> R[Saved Location vs Manual Entry Switch]
+    Q -- No --> S[Manual Address Form]
+    
+    R -->|Choose Saved| T[Confirm Saved Profile Card]
+    R -->|Choose Manual| S
+    
+    S --> U[Select City & Area Dropdowns]
+    U --> V[Input House & Street Numeric Fields]
+    V --> W[Fetch Coordinates via GPS / Leaflet Map Modal]
+    W --> X[Validate Zod Schema]
+    X --> Y[Post Job success -> Create Location Chain]
 ```
 
 ---
@@ -90,8 +105,12 @@ graph TD
     ├── components/             # Reusable UI Custom Components
     │   ├── CustomButton.tsx    # Styled wrapper for native Pressable element
     │   ├── CustomInput.tsx     # react-hook-form controller input with validation feedback
-    │   └── SignInWith.tsx      # Google SSO authentication handler (incorporates browser pre-warm)
-    └── provider/               # Directory designated for global providers
+    │   ├── SignInWith.tsx      # Google SSO authentication handler (incorporates browser pre-warm)
+    │   └── home/
+    │       └── PostJobModal.tsx # Post Job wizard form with dynamic location resolution, GPS & maps
+    │   ├── provider/           # Directory designated for global providers
+    │   │   ├── auth.tsx        # Auth provider holding session and user details
+    │   │   └── post-job.tsx    # Post Job workflow logic with location chain checks
 ```
 
 ---
@@ -100,35 +119,55 @@ graph TD
 
 ### 🔒 Core Layout & Guards
 
-1.  **Root Layout (`src/app/_layout.tsx`):** Wraps the entire application with the Clerk authentication context. It initiates the session manager with a secure token cache that writes directly to the native `SecureStore` instead of memory:
-    ```tsx
-    import { ClerkProvider } from '@clerk/clerk-expo';
-    import { tokenCache } from '@clerk/clerk-expo/token-cache';
+1.  **Root Layout (`src/app/_layout.tsx`):** Wraps the entire application with the Clerk authentication context. It initiates the session manager with a secure token cache that writes directly to the native `SecureStore` instead of memory.
+2.  **Protected Route Guard (`src/app/(protected)/_layout.tsx`):** Assures that any view nested under `(protected)` cannot be mounted unless the user is signed in. If the session expires or is missing, it immediately redirects them to `/sign-in`.
+
+### 📍 Interactive Location Flow
+
+1.  **Conditional Schema Validation (`PostJobModal.tsx`):** We use Zod's `superRefine` to conditionally require address details only if the user chooses the manual entry route:
+    ```typescript
+    const postJobSchema = z.object({
+      useSavedLocation: z.boolean(),
+      city: z.string().optional(),
+      area: z.string().optional(),
+      houseNumber: z.string().optional(),
+      streetNumber: z.string().optional(),
+      zipCode: z.string().optional(),
+      pinLocation: z.string().optional(),
+      // ...
+    }).superRefine((val, ctx) => {
+      if (!val.useSavedLocation) {
+        if (!val.houseNumber || !/^\d+$/.test(val.houseNumber.trim())) {
+          ctx.addIssue({ code: 'custom', message: 'Numeric house number is required', path: ['houseNumber'] });
+        }
+        // Validate zipCode, city, area, street, pinLocation...
+      }
+    });
+    ```
+2.  **Webview PostMessage Bridge:** The embedded Leaflet page returns selected coordinates instantly back to the React Native form state:
+    ```typescript
+    // WebView (HTML JavaScript)
+    window.ReactNativeWebView.postMessage(JSON.stringify({
+      type: 'LOCATION_SELECTED',
+      lat: selectedCoords.lat,
+      lng: selectedCoords.lng
+    }));
     
-    // ...
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-        <Slot />
-    </ClerkProvider>
+    // React Native Handler
+    const handleMapMessage = (event: any) => {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'LOCATION_SELECTED') {
+        setValue('pinLocation', `${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}`, { shouldValidate: true });
+        setShowMapPicker(false);
+      }
+    };
     ```
-2.  **Protected Route Guard (`src/app/(protected)/_layout.tsx`):** Assures that any view nested under `(protected)` cannot be mounted unless the user is signed in. If the session expires or is missing, it immediately redirects them to `/sign-in`:
-    ```tsx
-    const { isSignedIn } = useAuth();
-    if (!isSignedIn) {
-        return <Redirect href='/sign-in' />;
-    }
-    ```
-3.  **Auth Route Guard (`src/app/(auth)/_layout.tsx`):** Prevents logged-in users from seeing the Sign In, Sign Up, or Verification screens. It immediately pushes them back to `/` to avoid redundant workflows.
-
-### 🧬 Reusable Components
-
-*   **`CustomInput.tsx`:** Links a standard native `TextInput` directly to a `react-hook-form` validation context. Dynamically changes border colors to `crimson` upon error and prints schema errors cleanly beneath the input.
-*   **`SignInWith.tsx`:** Coordinates Google SSO via Web Browser. Uses a pre-warming hook to load WebBrowser resources in the background on Android, providing smooth, high-fidelity browser transitions.
 
 ---
 
 ## 🛠️ Step-by-Step Setup
 
-Follow these steps to run the authentication flow template locally:
+Follow these steps to run the authentication & location flow locally:
 
 ### 1. Prerequisite Setup
 
@@ -151,10 +190,8 @@ Create a `.env` file in the root directory (already populated locally) and decla
 
 ```env
 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key_here
+EXPO_PUBLIC_API_URL=your_backend_api_url_here
 ```
-
-> [!IMPORTANT]
-> The publishable key must be prefixed with `EXPO_PUBLIC_` to be exposed to your application bundle during building/runtime.
 
 ### 4. Run the Dev Server
 
@@ -175,5 +212,5 @@ From here, you can:
 
 ## 🧑‍💻 Technical Notes
 
-*   **OAuth Scheme Configuration:** When deploying to production standalone apps, configure the native redirection URL scheme (defined under `expo.scheme` in `app.json`) within your Clerk Dashboard under **User & Authentication** ➡️ **Social Connections** ➡️ **Google**.
-*   **Error Parser Utility:** Native forms parse Clerk's API errors using a helper switch (`mapClerkErrorToFormField`) to map specific server-side constraints (e.g. invalid password, already registered email) into native form controller errors dynamically.
+*   **OAuth Scheme Configuration:** When deploying to production standalone apps, configure the native redirection URL scheme (defined under `expo.scheme` in `app.json`) within your Clerk Dashboard under **Social Connections** ➡️ **Google**.
+*   **Saved Locations Resolver:** The location creation pipeline automatically handles lookup/creation of countries, cities, and areas in cascading order (`getOrCreateLocationChain`), resolving database IDs and returning a unified `locationId` used to link jobs.
