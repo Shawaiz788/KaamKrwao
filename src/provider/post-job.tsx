@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState } from 'react';
 import PostJobModal from '../components/home/PostJobModal';
 import { Alert } from 'react-native';
 
+import { getOrCreateLocationChain } from '../../api/location';
+
 interface PostJobContextType {
   openPostJob: (category?: string) => void;
   closePostJob: () => void;
@@ -26,12 +28,45 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
     setCategory(undefined);
   };
 
-  const handlePostSuccess = (details: any) => {
-    Alert.alert(
-      'Success!',
-      `Your job request for "${details.category}" in ${details.area}, ${details.city} has been posted.`,
-      [{ text: 'OK' }]
-    );
+  const handlePostSuccess = async (details: any) => {
+    console.log('[post-job provider] onSuccess triggered with details:', details);
+    try {
+      let locationId: number;
+      if (details.useSavedLocation && details.locationId) {
+        locationId = details.locationId;
+        console.log('[post-job provider] Using saved location ID:', locationId);
+      } else {
+        const location = await getOrCreateLocationChain({
+          countryName: details.country,
+          cityName: details.city,
+          areaName: details.area,
+          houseNumber: details.houseNumber,
+          streetNumber: details.streetNumber,
+          pinLocation: details.pinLocation,
+          zipCode: details.zipCode,
+          landmark: details.landmark || '',
+        });
+        locationId = location.id!;
+        console.log('[post-job provider] Location created successfully:', location);
+      }
+
+      const locationDisplay = details.useSavedLocation
+        ? 'your saved address'
+        : `${details.area}, ${details.city}`;
+
+      Alert.alert(
+        'Success!',
+        `Your job request for "${details.category}" in ${locationDisplay} has been posted.\n\nResolved Location ID: ${locationId}`,
+        [{ text: 'OK' }]
+      );
+    } catch (err: any) {
+      console.error('[post-job provider] Failed to create location:', err);
+      Alert.alert(
+        'Location Resolution Error',
+        `Failed to resolve location: ${err?.message || err}`,
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   return (

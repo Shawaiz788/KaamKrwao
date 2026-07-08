@@ -14,9 +14,36 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getAreasByCity, Area } from '../../../api/location';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { useAuth } from '../../provider/auth';
+import { getLocationById, UserLocation } from '../../../api/location';
+
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const { width } = Dimensions.get('window');
+
+const formatDate = (date: Date): string => {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+const parseDateString = (dateStr: string): Date => {
+  const parts = dateStr.split('/');
+  if (parts.length === 3) {
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const year = parseInt(parts[2], 10);
+    const date = new Date(year, month, day);
+    if (!isNaN(date.getTime())) {
+      return date;
+    }
+  }
+  return new Date();
+};
 
 interface PostJobModalProps {
   visible: boolean;
@@ -40,22 +67,72 @@ const POST_CATEGORIES = [
   { name: 'Driver', icon: 'navigate', color: '#14B8A6' },
 ];
 
-const CITIES = ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi'];
+import { COUNTRY_DATA, getCountryFromPhone } from '../../constants/locationData';
 
-const STATIC_AREAS: { [key: string]: string[] } = {
-  Lahore: ['DHA Phase 5', 'Gulberg III', 'Model Town', 'Johar Town', 'Cantt', 'Bahria Town Lahore'],
-  Karachi: ['Clifton Block 4', 'DHA Phase 6', 'PECHS', 'Gulshan-e-Iqbal', 'North Nazimabad'],
-  Islamabad: ['F-7 Markaz', 'G-11 Sector', 'E-7 Sector', 'DHA Phase 2', 'Bahria Town Islamabad'],
-  Rawalpindi: ['Bahria Town Rwp', 'Saddar', 'Satellite Town', 'Adyala Road'],
-};
+const postJobSchema = z.object({
+  category: z.string().min(1, { message: 'Please select a category' }),
+  description: z.string().min(5, { message: 'Description must be at least 5 characters long' }),
+  useSavedLocation: z.boolean(),
+  city: z.string().optional(),
+  area: z.string().optional(),
+  houseNumber: z.string().optional(),
+  streetNumber: z.string().optional(),
+  zipCode: z.string().optional(),
+  pinLocation: z.string().optional(),
+  landmark: z.string().optional(),
+  budget: z.string()
+    .min(1, { message: 'Please specify your budget' })
+    .refine(val => !isNaN(Number(val)) && Number(val) > 0, { message: 'Budget must be a positive number' }),
+  date: z.string().min(1, { message: 'Preferred date is required' }),
+  paymentPref: z.string().min(1, { message: 'Payment preference is required' }),
+}).superRefine((val, ctx) => {
+  if (!val.useSavedLocation) {
+    if (!val.city || val.city.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'City is required',
+        path: ['city'],
+      });
+    }
+    if (!val.area || val.area.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Area is required',
+        path: ['area'],
+      });
+    }
+    if (!val.houseNumber || val.houseNumber.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'House number is required',
+        path: ['houseNumber'],
+      });
+    }
+    if (!val.streetNumber || val.streetNumber.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Street number is required',
+        path: ['streetNumber'],
+      });
+    }
+    if (!val.zipCode || val.zipCode.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Zip code is required',
+        path: ['zipCode'],
+      });
+    }
+    if (!val.pinLocation || val.pinLocation.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Pin location is required',
+        path: ['pinLocation'],
+      });
+    }
+  }
+});
 
-// Hardcoded City IDs for fetching from api/location.ts
-const CITY_IDS: { [key: string]: number } = {
-  Lahore: 1,
-  Karachi: 2,
-  Islamabad: 3,
-  Rawalpindi: 4,
-};
+type PostJobFormData = z.infer<typeof postJobSchema>;
 
 export default function PostJobModal({
   visible,
@@ -65,76 +142,143 @@ export default function PostJobModal({
 }: PostJobModalProps) {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(1);
-
-  // Form Fields
-  const [category, setCategory] = useState(initialCategory || '');
-  const [description, setDescription] = useState('');
-  const [selectedCity, setSelectedCity] = useState('Lahore');
-  const [selectedArea, setSelectedArea] = useState('');
-  const [landmark, setLandmark] = useState('');
-  const [budget, setBudget] = useState('');
-  const [preferredDate, setPreferredDate] = useState('');
-  const [paymentPref, setPaymentPref] = useState('Cash on Service');
-
-  // Dynamic API Fetch States
-  const [areas, setAreas] = useState<string[]>(STATIC_AREAS['Lahore']);
-  const [loadingAreas, setLoadingAreas] = useState(false);
   const [showAreaDropdown, setShowAreaDropdown] = useState(false);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [postedSuccess, setPostedSuccess] = useState(false);
+
+  const { user } = useAuth();
+  const country = getCountryFromPhone(user?.phoneNumber);
+  const countryCities = COUNTRY_DATA[country]?.cities || COUNTRY_DATA['Pakistan'].cities;
+  const defaultCity = countryCities[0] || '';
+
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    watch,
+    trigger,
+    formState: { errors },
+    reset,
+  } = useForm<PostJobFormData>({
+    resolver: zodResolver(postJobSchema),
+    defaultValues: {
+      category: initialCategory || '',
+      description: '',
+      useSavedLocation: false,
+      city: defaultCity,
+      area: '',
+      houseNumber: '',
+      streetNumber: '',
+      zipCode: '',
+      pinLocation: '',
+      landmark: '',
+      budget: '',
+      date: '',
+      paymentPref: 'Cash on Service',
+    },
+  });
+
+  const watchedCategory = watch('category');
+  const watchedDescription = watch('description');
+  const watchedUseSavedLocation = watch('useSavedLocation');
+  const watchedCity = watch('city');
+  const watchedArea = watch('area');
+  const watchedHouseNumber = watch('houseNumber');
+  const watchedStreetNumber = watch('streetNumber');
+  const watchedZipCode = watch('zipCode');
+  const watchedPinLocation = watch('pinLocation');
+  const watchedLandmark = watch('landmark');
+  const watchedBudget = watch('budget');
+  const watchedDate = watch('date');
+  const watchedPaymentPref = watch('paymentPref');
+
+  const cityAreas = watchedCity
+    ? (COUNTRY_DATA[country]?.areas[watchedCity] || [])
+    : [];
+
+  const [savedLocationDetails, setSavedLocationDetails] = useState<UserLocation | null>(null);
+  const [loadingLocation, setLoadingLocation] = useState(false);
+
+  useEffect(() => {
+    if (visible && user?.location_id) {
+      setLoadingLocation(true);
+      getLocationById(user.location_id)
+        .then((loc) => {
+          setSavedLocationDetails(loc);
+          setValue('useSavedLocation', true); // Default to saved location if available
+        })
+        .catch((err) => {
+          console.error('Failed to load saved location:', err);
+          setValue('useSavedLocation', false);
+        })
+        .finally(() => {
+          setLoadingLocation(false);
+        });
+    } else {
+      setValue('useSavedLocation', false);
+      setSavedLocationDetails(null);
+    }
+  }, [visible, user?.location_id, setValue]);
+
+  // Reset area when city changes
+  useEffect(() => {
+    setValue('area', '');
+  }, [watchedCity, setValue]);
 
   // Update category if initialCategory changes
   useEffect(() => {
     if (initialCategory) {
-      setCategory(initialCategory);
+      setValue('category', initialCategory);
     }
-  }, [initialCategory]);
+  }, [initialCategory, setValue]);
 
-  // Fetch areas when selected city changes
+  // Update default city if user's country is loaded/changed
   useEffect(() => {
-    const fetchAreas = async () => {
-      const cityId = CITY_IDS[selectedCity];
-      if (!cityId) {
-        setAreas(STATIC_AREAS[selectedCity] || []);
-        return;
-      }
-
-      setLoadingAreas(true);
-      try {
-        const fetched = await getAreasByCity(cityId);
-        if (fetched && Array.isArray(fetched) && fetched.length > 0) {
-          setAreas(fetched.map((a: Area) => a.name));
-        } else {
-          setAreas(STATIC_AREAS[selectedCity] || []);
-        }
-      } catch (err) {
-        console.log('Error fetching areas, using static fallback:', err);
-        setAreas(STATIC_AREAS[selectedCity] || []);
-      } finally {
-        setLoadingAreas(false);
-      }
-    };
-
-    fetchAreas();
-    setSelectedArea(''); // Reset area selection on city change
-  }, [selectedCity]);
+    if (user) {
+      setValue('city', defaultCity);
+    }
+  }, [user, defaultCity, setValue]);
 
   // Reset form when modal closes or opens
   const handleReset = () => {
     setStep(1);
-    setCategory(initialCategory || '');
-    setDescription('');
-    setSelectedCity('Lahore');
-    setSelectedArea('');
-    setLandmark('');
-    setBudget('');
-    setPreferredDate('');
-    setPaymentPref('Cash on Service');
+    reset({
+      category: initialCategory || '',
+      description: '',
+      useSavedLocation: !!user?.location_id,
+      city: defaultCity,
+      area: '',
+      houseNumber: '',
+      streetNumber: '',
+      zipCode: '',
+      pinLocation: '',
+      landmark: '',
+      budget: '',
+      date: '',
+      paymentPref: 'Cash on Service',
+    });
     setPostedSuccess(false);
+    setShowCityDropdown(false);
+    setShowAreaDropdown(false);
+    setShowDatePicker(false);
   };
 
-  const handleNext = () => {
-    if (step < 3) {
-      setStep(step + 1);
+  const handleNext = async () => {
+    if (step === 1) {
+      const isValid = await trigger(['category', 'description']);
+      if (isValid) {
+        setStep(2);
+      }
+    } else if (step === 2) {
+      const fieldsToValidate: any[] = ['budget', 'date'];
+      if (!watchedUseSavedLocation) {
+        fieldsToValidate.push('city', 'area', 'houseNumber', 'streetNumber', 'zipCode', 'pinLocation');
+      }
+      const isValid = await trigger(fieldsToValidate);
+      if (isValid) {
+        setStep(3);
+      }
     }
   };
 
@@ -147,26 +291,37 @@ export default function PostJobModal({
     }
   };
 
-  const handlePostJob = () => {
+  const handlePostJob = handleSubmit((data) => {
     setPostedSuccess(true);
     setTimeout(() => {
       onSuccess({
-        category,
-        description,
-        city: selectedCity,
-        area: selectedArea,
-        landmark,
-        budget,
-        date: preferredDate,
-        paymentPreference: paymentPref,
+        category: data.category,
+        description: data.description,
+        useSavedLocation: data.useSavedLocation,
+        locationId: user?.location_id,
+        city: data.city,
+        area: data.area,
+        landmark: data.landmark,
+        houseNumber: data.houseNumber,
+        streetNumber: data.streetNumber,
+        zipCode: data.zipCode,
+        pinLocation: data.pinLocation,
+        budget: data.budget,
+        date: data.date,
+        paymentPreference: data.paymentPref,
+        country: country,
       });
       handleReset();
       onClose();
     }, 2000);
-  };
+  });
 
-  const isStep1Valid = category !== '' && description.trim().length >= 5;
-  const isStep2Valid = selectedCity !== '' && selectedArea !== '' && budget !== '' && preferredDate !== '';
+  const isStep1Valid = watchedCategory !== '' && watchedDescription.trim().length >= 5;
+  const isStep2Valid = watchedBudget.trim() !== '' && watchedDate.trim() !== '' && (
+    watchedUseSavedLocation
+      ? (savedLocationDetails !== null)
+      : (watchedCity !== '' && watchedArea !== '' && (watchedHouseNumber || '').trim() !== '' && (watchedStreetNumber || '').trim() !== '' && (watchedZipCode || '').trim() !== '' && (watchedPinLocation || '').trim() !== '')
+  );
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -221,145 +376,428 @@ export default function PostJobModal({
                   <Text style={styles.sectionHeading}>What do you need fixed?</Text>
 
                   {/* Categories Selector Grid */}
-                  <View style={styles.categoriesGrid}>
-                    {POST_CATEGORIES.map((cat, idx) => {
-                      const isSelected = category === cat.name;
-                      return (
-                        <Pressable
-                          key={idx}
-                          style={[
-                            styles.categoryCard,
-                            isSelected ? styles.categoryCardActive : styles.categoryCardInactive,
-                          ]}
-                          onPress={() => setCategory(cat.name)}
-                        >
-                          <Ionicons
-                            name={cat.icon as any}
-                            size={24}
-                            color={isSelected ? '#FFFFFF' : cat.color}
-                            style={{ marginBottom: 6 }}
-                          />
-                          <Text
-                            style={[
-                              styles.categoryLabel,
-                              isSelected ? styles.categoryLabelActive : styles.categoryLabelInactive,
-                            ]}
-                          >
-                            {cat.name}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+                  <Controller
+                    control={control}
+                    name="category"
+                    render={({ field: { onChange, value } }) => (
+                      <View style={styles.categoriesGrid}>
+                        {POST_CATEGORIES.map((cat, idx) => {
+                          const isSelected = value === cat.name;
+                          return (
+                            <Pressable
+                              key={idx}
+                              style={[
+                                styles.categoryCard,
+                                isSelected ? styles.categoryCardActive : styles.categoryCardInactive,
+                              ]}
+                              onPress={() => onChange(cat.name)}
+                            >
+                              <Ionicons
+                                name={cat.icon as any}
+                                size={24}
+                                color={isSelected ? '#FFFFFF' : cat.color}
+                                style={{ marginBottom: 6 }}
+                              />
+                              <Text
+                                style={[
+                                  styles.categoryLabel,
+                                  isSelected ? styles.categoryLabelActive : styles.categoryLabelInactive,
+                                ]}
+                              >
+                                {cat.name}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    )}
+                  />
+                  {errors.category && (
+                    <Text style={styles.errorText}>{errors.category.message}</Text>
+                  )}
 
                   {/* Describe the Job */}
                   <Text style={styles.inputLabel}>Describe the job</Text>
-                  <TextInput
-                    style={styles.textArea}
-                    multiline
-                    numberOfLines={4}
-                    placeholder="E.g. Need to fix a leaking pipe under the kitchen sink..."
-                    placeholderTextColor="#9CA3AF"
-                    value={description}
-                    onChangeText={setDescription}
-                    textAlignVertical="top"
+                  <Controller
+                    control={control}
+                    name="description"
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <TextInput
+                        style={[styles.textArea, errors.description && styles.inputError]}
+                        multiline
+                        numberOfLines={4}
+                        placeholder="E.g. Need to fix a leaking pipe under the kitchen sink..."
+                        placeholderTextColor="#9CA3AF"
+                        value={value}
+                        onChangeText={onChange}
+                        onBlur={onBlur}
+                        textAlignVertical="top"
+                      />
+                    )}
                   />
+                  {errors.description && (
+                    <Text style={styles.errorText}>{errors.description.message}</Text>
+                  )}
                 </View>
               )}
 
               {/* STEP 2 */}
               {step === 2 && (
                 <View>
-                  {/* City Selection */}
-                  <Text style={styles.inputLabel}>City</Text>
-                  <View style={styles.citiesRow}>
-                    {CITIES.map((city) => {
-                      const isSelected = selectedCity === city;
-                      return (
+                  {/* Location Options Selector */}
+                  {user?.location_id ? (
+                    <View style={styles.locationSelectorContainer}>
+                      <Text style={styles.inputLabel}>Choose Location Option</Text>
+                      <View style={styles.tabContainer}>
                         <Pressable
-                          key={city}
                           style={[
-                            styles.cityPill,
-                            isSelected ? styles.cityPillActive : styles.cityPillInactive,
+                            styles.tabButton,
+                            watchedUseSavedLocation && styles.tabButtonActive,
                           ]}
-                          onPress={() => setSelectedCity(city)}
+                          onPress={() => setValue('useSavedLocation', true)}
                         >
+                          <Ionicons
+                            name="bookmark-outline"
+                            size={16}
+                            color={watchedUseSavedLocation ? '#FFFFFF' : '#374151'}
+                            style={{ marginRight: 6 }}
+                          />
                           <Text
                             style={[
-                              styles.cityPillText,
-                              isSelected ? styles.cityPillTextActive : styles.cityPillTextInactive,
+                              styles.tabButtonText,
+                              watchedUseSavedLocation && styles.tabButtonTextActive,
                             ]}
                           >
-                            {city}
+                            Saved Location
                           </Text>
                         </Pressable>
-                      );
-                    })}
-                  </View>
-
-                  {/* Area / Sector Select */}
-                  <Text style={styles.inputLabel}>Area / Sector</Text>
-                  <Pressable
-                    style={styles.dropdownTrigger}
-                    onPress={() => setShowAreaDropdown(!showAreaDropdown)}
-                  >
-                    <Text style={selectedArea ? styles.dropdownTextSelected : styles.dropdownTextPlaceholder}>
-                      {selectedArea || 'Area / Sector...'}
-                    </Text>
-                    {loadingAreas ? (
-                      <ActivityIndicator size="small" color="#10B981" />
-                    ) : (
-                      <Ionicons name={showAreaDropdown ? 'chevron-up' : 'chevron-down'} size={20} color="#4B5563" />
-                    )}
-                  </Pressable>
-
-                  {showAreaDropdown && (
-                    <View style={styles.dropdownList}>
-                      {areas.map((area, idx) => (
                         <Pressable
-                          key={idx}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setSelectedArea(area);
-                            setShowAreaDropdown(false);
-                          }}
+                          style={[
+                            styles.tabButton,
+                            !watchedUseSavedLocation && styles.tabButtonActive,
+                          ]}
+                          onPress={() => setValue('useSavedLocation', false)}
                         >
-                          <Text style={styles.dropdownItemText}>{area}</Text>
+                          <Ionicons
+                            name="map-outline"
+                            size={16}
+                            color={!watchedUseSavedLocation ? '#FFFFFF' : '#374151'}
+                            style={{ marginRight: 6 }}
+                          />
+                          <Text
+                            style={[
+                              styles.tabButtonText,
+                              !watchedUseSavedLocation && styles.tabButtonTextActive,
+                            ]}
+                          >
+                            New Address
+                          </Text>
                         </Pressable>
-                      ))}
+                      </View>
+                    </View>
+                  ) : null}
+
+                  {watchedUseSavedLocation && user?.location_id ? (
+                    <View style={styles.savedLocationCard}>
+                      <View style={styles.savedLocationHeader}>
+                        <Ionicons name="location" size={20} color="#10B981" style={{ marginRight: 8 }} />
+                        <Text style={styles.savedLocationTitle}>Your Saved Location</Text>
+                      </View>
+                      {loadingLocation ? (
+                        <ActivityIndicator size="small" color="#10B981" style={{ marginVertical: 10 }} />
+                      ) : savedLocationDetails ? (
+                        <Text style={styles.savedLocationAddress}>
+                          {((loc) => {
+                            const getCityName = (loc: any) => {
+                              if (!loc) return '';
+                              if (typeof loc.city === 'object') return loc.city?.name || '';
+                              if (loc.city_name) return loc.city_name;
+                              return `City ID: ${loc.city_id || loc.city || ''}`;
+                            };
+                            const getAreaName = (loc: any) => {
+                              if (!loc) return '';
+                              if (typeof loc.area === 'object') return loc.area?.name || '';
+                              if (loc.area_name) return loc.area_name;
+                              return `Area ID: ${loc.area_id || loc.area || ''}`;
+                            };
+                            const parts = [
+                              loc.house_number ? `House ${loc.house_number}` : null,
+                              loc.street_number ? `Street ${loc.street_number}` : null,
+                              loc.landmark ? `Landmark: ${loc.landmark}` : null,
+                              getAreaName(loc),
+                              getCityName(loc),
+                              loc.zip_code ? `Zip: ${loc.zip_code}` : null,
+                            ].filter(Boolean);
+                            return parts.join(', ');
+                          })(savedLocationDetails)}
+                        </Text>
+                      ) : (
+                        <Text style={styles.savedLocationError}>
+                          Failed to load saved location. Please enter address manually.
+                        </Text>
+                      )}
+                    </View>
+                  ) : (
+                    <View>
+                      {/* City Selection */}
+                      <Text style={styles.inputLabel}>City</Text>
+                      <Controller
+                        control={control}
+                        name="city"
+                        render={({ field: { onChange, value } }) => (
+                          <View style={{ zIndex: 2000 }}>
+                            <Pressable
+                              style={[styles.dropdownTrigger, errors.city && styles.inputError]}
+                              onPress={() => setShowCityDropdown(!showCityDropdown)}
+                            >
+                              <Text style={value ? styles.dropdownTextSelected : styles.dropdownTextPlaceholder}>
+                                {value || 'Select City...'}
+                              </Text>
+                              <Ionicons name={showCityDropdown ? 'chevron-up' : 'chevron-down'} size={20} color="#4B5563" />
+                            </Pressable>
+
+                            {showCityDropdown && (
+                              <View style={styles.dropdownList}>
+                                <ScrollView nestedScrollEnabled style={{ maxHeight: 180 }}>
+                                  {countryCities.map((city, idx) => (
+                                    <Pressable
+                                      key={idx}
+                                      style={styles.dropdownItem}
+                                      onPress={() => {
+                                        onChange(city);
+                                        setShowCityDropdown(false);
+                                      }}
+                                    >
+                                      <Text style={styles.dropdownItemText}>{city}</Text>
+                                    </Pressable>
+                                  ))}
+                                </ScrollView>
+                              </View>
+                            )}
+                          </View>
+                        )}
+                      />
+                      {errors.city && (
+                        <Text style={styles.errorText}>{errors.city.message}</Text>
+                      )}
+
+                      {/* Area / Sector Select */}
+                      <Text style={styles.inputLabel}>Area / Sector</Text>
+                      <Controller
+                        control={control}
+                        name="area"
+                        render={({ field: { onChange, value } }) => (
+                          <View style={{ zIndex: 1000 }}>
+                            <Pressable
+                              style={[styles.dropdownTrigger, errors.area && styles.inputError]}
+                              onPress={() => setShowAreaDropdown(!showAreaDropdown)}
+                            >
+                              <Text style={value ? styles.dropdownTextSelected : styles.dropdownTextPlaceholder}>
+                                {value || 'Area / Sector...'}
+                              </Text>
+                              <Ionicons name={showAreaDropdown ? 'chevron-up' : 'chevron-down'} size={20} color="#4B5563" />
+                            </Pressable>
+
+                            {showAreaDropdown && (
+                              <View style={styles.dropdownList}>
+                                <ScrollView nestedScrollEnabled style={{ maxHeight: 180 }}>
+                                  {cityAreas.map((area, idx) => (
+                                    <Pressable
+                                      key={idx}
+                                      style={styles.dropdownItem}
+                                      onPress={() => {
+                                        onChange(area);
+                                        setShowAreaDropdown(false);
+                                      }}
+                                    >
+                                      <Text style={styles.dropdownItemText}>{area}</Text>
+                                    </Pressable>
+                                  ))}
+                                </ScrollView>
+                              </View>
+                            )}
+                          </View>
+                        )}
+                      />
+                      {errors.area && (
+                        <Text style={styles.errorText}>{errors.area.message}</Text>
+                      )}
+
+                      {/* House Number */}
+                      <Text style={styles.inputLabel}>House Number</Text>
+                      <Controller
+                        control={control}
+                        name="houseNumber"
+                        render={({ field: { onChange, onBlur, value } }) => (
+                          <TextInput
+                            style={[styles.textInput, errors.houseNumber && styles.inputError]}
+                            placeholder="E.g. 42-A"
+                            placeholderTextColor="#9CA3AF"
+                            value={value}
+                            onChangeText={onChange}
+                            onBlur={onBlur}
+                          />
+                        )}
+                      />
+                      {errors.houseNumber && (
+                        <Text style={styles.errorText}>{errors.houseNumber.message}</Text>
+                      )}
+
+                      {/* Street Number */}
+                      <Text style={styles.inputLabel}>Street Number</Text>
+                      <Controller
+                        control={control}
+                        name="streetNumber"
+                        render={({ field: { onChange, onBlur, value } }) => (
+                          <TextInput
+                            style={[styles.textInput, errors.streetNumber && styles.inputError]}
+                            placeholder="E.g. Street 5"
+                            placeholderTextColor="#9CA3AF"
+                            value={value}
+                            onChangeText={onChange}
+                            onBlur={onBlur}
+                          />
+                        )}
+                      />
+                      {errors.streetNumber && (
+                        <Text style={styles.errorText}>{errors.streetNumber.message}</Text>
+                      )}
+
+                      {/* Zip Code */}
+                      <Text style={styles.inputLabel}>Zip Code</Text>
+                      <Controller
+                        control={control}
+                        name="zipCode"
+                        render={({ field: { onChange, onBlur, value } }) => (
+                          <TextInput
+                            style={[styles.textInput, errors.zipCode && styles.inputError]}
+                            placeholder="E.g. 54000"
+                            placeholderTextColor="#9CA3AF"
+                            keyboardType="numeric"
+                            value={value}
+                            onChangeText={onChange}
+                            onBlur={onBlur}
+                          />
+                        )}
+                      />
+                      {errors.zipCode && (
+                        <Text style={styles.errorText}>{errors.zipCode.message}</Text>
+                      )}
+
+                      {/* Pin Location */}
+                      <Text style={styles.inputLabel}>Pin Location / Coordinates</Text>
+                      <Controller
+                        control={control}
+                        name="pinLocation"
+                        render={({ field: { onChange, onBlur, value } }) => (
+                          <TextInput
+                            style={[styles.textInput, errors.pinLocation && styles.inputError]}
+                            placeholder="E.g. 31.5204, 74.3587"
+                            placeholderTextColor="#9CA3AF"
+                            value={value}
+                            onChangeText={onChange}
+                            onBlur={onBlur}
+                          />
+                        )}
+                      />
+                      {errors.pinLocation && (
+                        <Text style={styles.errorText}>{errors.pinLocation.message}</Text>
+                      )}
+
+                      {/* Nearest Landmark */}
+                      <Text style={styles.inputLabel}>Nearest Landmark (Optional)</Text>
+                      <Controller
+                        control={control}
+                        name="landmark"
+                        render={({ field: { onChange, onBlur, value } }) => (
+                          <TextInput
+                            style={styles.textInput}
+                            placeholder="E.g. Near Al-Fatah supermarket, DHA"
+                            placeholderTextColor="#9CA3AF"
+                            value={value}
+                            onChangeText={onChange}
+                            onBlur={onBlur}
+                          />
+                        )}
+                      />
                     </View>
                   )}
 
-                  {/* Nearest Landmark */}
-                  <Text style={styles.inputLabel}>Nearest Landmark</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="E.g. Near Al-Fatah supermarket, DHA"
-                    placeholderTextColor="#9CA3AF"
-                    value={landmark}
-                    onChangeText={setLandmark}
-                  />
-
                   {/* Budget */}
                   <Text style={styles.inputLabel}>Your Budget (PKR)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="Rs. 5,000"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="numeric"
-                    value={budget}
-                    onChangeText={setBudget}
+                  <Controller
+                    control={control}
+                    name="budget"
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <TextInput
+                        style={[styles.textInput, errors.budget && styles.inputError]}
+                        placeholder="Rs. 5,000"
+                        placeholderTextColor="#9CA3AF"
+                        keyboardType="numeric"
+                        value={value}
+                        onChangeText={onChange}
+                        onBlur={onBlur}
+                      />
+                    )}
                   />
+                  {errors.budget && (
+                    <Text style={styles.errorText}>{errors.budget.message}</Text>
+                  )}
 
                   {/* Preferred Date */}
                   <Text style={styles.inputLabel}>Preferred Date</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="dd/mm/yyyy"
-                    placeholderTextColor="#9CA3AF"
-                    value={preferredDate}
-                    onChangeText={setPreferredDate}
+                  <Controller
+                    control={control}
+                    name="date"
+                    render={({ field: { onChange, value } }) => {
+                      const dateValue = value ? parseDateString(value) : new Date();
+
+                      return (
+                        <View>
+                          <Pressable
+                            style={[styles.dropdownTrigger, errors.date && styles.inputError]}
+                            onPress={() => setShowDatePicker(!showDatePicker)}
+                          >
+                            <Text style={value ? styles.dropdownTextSelected : styles.dropdownTextPlaceholder}>
+                              {value || 'Select Date...'}
+                            </Text>
+                            <Ionicons name="calendar-outline" size={20} color="#4B5563" />
+                          </Pressable>
+
+                          {showDatePicker && (
+                            <View style={{ marginTop: 10 }}>
+                              <DateTimePicker
+                                value={dateValue}
+                                mode="date"
+                                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                                minimumDate={new Date()}
+                                onChange={(event, selectedDate) => {
+                                  if (Platform.OS === 'android') {
+                                    setShowDatePicker(false);
+                                  }
+                                  if (selectedDate) {
+                                    const formatted = formatDate(selectedDate);
+                                    onChange(formatted);
+                                  }
+                                }}
+                              />
+                              {Platform.OS === 'ios' && (
+                                <Pressable
+                                  style={styles.iosDoneBtn}
+                                  onPress={() => setShowDatePicker(false)}
+                                >
+                                  <Text style={styles.iosDoneBtnText}>Done</Text>
+                                </Pressable>
+                              )}
+                            </View>
+                          )}
+                        </View>
+                      );
+                    }}
                   />
+                  {errors.date && (
+                    <Text style={styles.errorText}>{errors.date.message}</Text>
+                  )}
                 </View>
               )}
 
@@ -372,73 +810,107 @@ export default function PostJobModal({
                   <View style={styles.reviewCard}>
                     <View style={styles.reviewRow}>
                       <Text style={styles.reviewLabel}>Category</Text>
-                      <Text style={styles.reviewValue}>{category}</Text>
+                      <Text style={styles.reviewValue}>{watchedCategory}</Text>
                     </View>
                     <View style={styles.reviewDivider} />
 
                     <View style={styles.reviewRow}>
                       <Text style={styles.reviewLabel}>Location</Text>
                       <Text style={styles.reviewValue}>
-                        {selectedArea}, {selectedCity}
+                        {watchedUseSavedLocation
+                          ? (savedLocationDetails
+                              ? ((loc) => {
+                                  const getCityName = (loc: any) => {
+                                    if (!loc) return '';
+                                    if (typeof loc.city === 'object') return loc.city?.name || '';
+                                    if (loc.city_name) return loc.city_name;
+                                    return `City ID: ${loc.city_id || loc.city || ''}`;
+                                  };
+                                  const getAreaName = (loc: any) => {
+                                    if (!loc) return '';
+                                    if (typeof loc.area === 'object') return loc.area?.name || '';
+                                    if (loc.area_name) return loc.area_name;
+                                    return `Area ID: ${loc.area_id || loc.area || ''}`;
+                                  };
+                                  const parts = [
+                                    loc.house_number ? `House ${loc.house_number}` : null,
+                                    loc.street_number ? `Street ${loc.street_number}` : null,
+                                    getAreaName(loc),
+                                    getCityName(loc),
+                                  ].filter(Boolean);
+                                  return parts.join(', ');
+                                })(savedLocationDetails)
+                              : 'Saved Location')
+                          : `${watchedHouseNumber ? `House ${watchedHouseNumber}, ` : ''}${watchedStreetNumber ? `Street ${watchedStreetNumber}, ` : ''}${watchedArea}, ${watchedCity}`}
                       </Text>
                     </View>
                     <View style={styles.reviewDivider} />
 
                     <View style={styles.reviewRow}>
                       <Text style={styles.reviewLabel}>Landmark</Text>
-                      <Text style={styles.reviewValue}>{landmark || 'None'}</Text>
+                      <Text style={styles.reviewValue}>
+                        {watchedUseSavedLocation
+                          ? (savedLocationDetails?.landmark || 'None')
+                          : (watchedLandmark || 'None')}
+                      </Text>
                     </View>
                     <View style={styles.reviewDivider} />
 
                     <View style={styles.reviewRow}>
                       <Text style={styles.reviewLabel}>Budget</Text>
-                      <Text style={styles.reviewValue}>Rs. {budget}</Text>
+                      <Text style={styles.reviewValue}>Rs. {watchedBudget}</Text>
                     </View>
                     <View style={styles.reviewDivider} />
 
                     <View style={styles.reviewRow}>
                       <Text style={styles.reviewLabel}>Date</Text>
-                      <Text style={styles.reviewValue}>{preferredDate}</Text>
+                      <Text style={styles.reviewValue}>{watchedDate}</Text>
                     </View>
                   </View>
 
                   {/* Payment Preference */}
                   <Text style={styles.inputLabel}>Payment Preference</Text>
-                  <View style={styles.paymentGrid}>
-                    {[
-                      { name: 'Cash on Service', icon: 'cash-outline' },
-                      { name: 'JazzCash', icon: 'phone-portrait-outline' },
-                      { name: 'Easypaisa', icon: 'wallet-outline' },
-                      { name: 'Bank Transfer', icon: 'business-outline' },
-                    ].map((payment) => {
-                      const isSelected = paymentPref === payment.name;
-                      return (
-                        <Pressable
-                          key={payment.name}
-                          style={[
-                            styles.paymentCard,
-                            isSelected ? styles.paymentCardActive : styles.paymentCardInactive,
-                          ]}
-                          onPress={() => setPaymentPref(payment.name)}
-                        >
-                          <Ionicons
-                            name={payment.icon as any}
-                            size={20}
-                            color={isSelected ? '#10B981' : '#4B5563'}
-                            style={{ marginRight: 8 }}
-                          />
-                          <Text
-                            style={[
-                              styles.paymentLabel,
-                              isSelected ? styles.paymentLabelActive : styles.paymentLabelInactive,
-                            ]}
-                          >
-                            {payment.name}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+                  <Controller
+                    control={control}
+                    name="paymentPref"
+                    render={({ field: { onChange, value } }) => (
+                      <View style={styles.paymentGrid}>
+                        {[
+                          { name: 'Cash on Service', icon: 'cash-outline' },
+                          { name: 'JazzCash', icon: 'phone-portrait-outline' },
+                          { name: 'Easypaisa', icon: 'wallet-outline' },
+                          { name: 'Bank Transfer', icon: 'business-outline' },
+                        ].map((payment) => {
+                          const isSelected = value === payment.name;
+                          return (
+                            <Pressable
+                              key={payment.name}
+                              style={[
+                                styles.paymentCard,
+                                isSelected ? styles.paymentCardActive : styles.paymentCardInactive,
+                              ]}
+                              onPress={() => onChange(payment.name)}
+                            >
+                              <Ionicons
+                                name={payment.icon as any}
+                                size={20}
+                                color={isSelected ? '#10B981' : '#4B5563'}
+                                style={{ marginRight: 8 }}
+                              />
+                              <Text
+                                style={[
+                                  styles.paymentLabel,
+                                  isSelected ? styles.paymentLabelActive : styles.paymentLabelInactive,
+                                ]}
+                              >
+                                {payment.name}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    )}
+                  />
 
                   {/* Info Shield Banner */}
                   <View style={styles.infoBanner}>
@@ -808,5 +1280,88 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  inputError: {
+    borderColor: '#EF4444',
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  iosDoneBtn: {
+    backgroundColor: '#10B981',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignSelf: 'flex-end',
+    marginTop: 8,
+  },
+  iosDoneBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  locationSelectorContainer: {
+    marginBottom: 16,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 4,
+    marginTop: 8,
+  },
+  tabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  tabButtonActive: {
+    backgroundColor: '#082C18',
+  },
+  tabButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  tabButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  savedLocationCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  savedLocationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  savedLocationTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  savedLocationAddress: {
+    fontSize: 13,
+    color: '#4B5563',
+    lineHeight: 18,
+  },
+  savedLocationError: {
+    fontSize: 13,
+    color: '#EF4444',
   },
 });

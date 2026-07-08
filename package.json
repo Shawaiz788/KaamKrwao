@@ -13,6 +13,7 @@
     "@clerk/clerk-expo": "^2.19.31",
     "@expo/vector-icons": "^15.1.1",
     "@hookform/resolvers": "^5.4.0",
+    "@react-native-community/datetimepicker": "8.4.4",
     "@react-native-firebase/app": "^25.1.0",
     "@react-native-firebase/auth": "^25.1.0",
     "@tanstack/react-query": "^5.101.2",
