@@ -12,7 +12,7 @@ export const COUNTRY_DATA: { [countryName: string]: CountryLocationData } = {
     areas: {
       Lahore: [
         'DHA Phase 5', 'DHA Phase 6', 'Gulberg III', 'Model Town', 'Johar Town',
-        'Cantt', 'Bahria Town Lahore', 'Wapda Town', 'Askari 10', 'Iqbal Town',
+        'Cantt', 'Bahria Town', 'Wapda Town', 'Askari 10', 'Iqbal Town',
         'Township', 'Garden Town', 'Valencia Town', 'Faisal Town',
       ],
       Karachi: [

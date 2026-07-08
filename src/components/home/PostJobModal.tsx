@@ -11,6 +11,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +20,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '../../provider/auth';
 import { getLocationById, UserLocation } from '../../../api/location';
+import * as Location from 'expo-location';
+import { WebView } from 'react-native-webview';
 
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -44,6 +47,148 @@ const parseDateString = (dateStr: string): Date => {
   }
   return new Date();
 };
+
+const getLeafletHtml = (initialLat: number, initialLng: number) => `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    #map { height: 100vh; width: 100vw; z-index: 1; }
+    .search-container {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 6px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      display: flex;
+      gap: 6px;
+    }
+    .search-input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid #E5E7EB;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+    }
+    .search-btn {
+      background: #082C18;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .confirm-btn-container {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      right: 20px;
+      z-index: 1000;
+    }
+    .confirm-btn {
+      background: #10B981;
+      color: white;
+      border: none;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      width: 100%;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+      cursor: pointer;
+      text-align: center;
+    }
+    .confirm-btn:active {
+      background: #059669;
+    }
+  </style>
+</head>
+<body>
+  <div class="search-container">
+    <input type="text" id="search-input" class="search-input" placeholder="Search place or address..." />
+    <button onclick="searchPlace()" class="search-btn">Search</button>
+  </div>
+  <div id="map"></div>
+  <div class="confirm-btn-container">
+    <button onclick="confirmLocation()" class="confirm-btn">Confirm Selected Location</button>
+  </div>
+
+  <script>
+    var map = L.map('map', { zoomControl: false }).setView([${initialLat}, ${initialLng}], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    var marker = L.marker([${initialLat}, ${initialLng}], { draggable: true }).addTo(map);
+    var selectedCoords = { lat: ${initialLat}, lng: ${initialLng} };
+
+    function updateCoords(lat, lng) {
+      selectedCoords.lat = lat;
+      selectedCoords.lng = lng;
+    }
+
+    marker.on('dragend', function (e) {
+      var pos = marker.getLatLng();
+      updateCoords(pos.lat, pos.lng);
+    });
+
+    map.on('click', function (e) {
+      marker.setLatLng(e.latlng);
+      updateCoords(e.latlng.lat, e.latlng.lng);
+    });
+
+    function searchPlace() {
+      var query = document.getElementById('search-input').value;
+      if (!query) return;
+      
+      fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(query))
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+          if (data && data.length > 0) {
+            var first = data[0];
+            var lat = parseFloat(first.lat);
+            var lon = parseFloat(first.lon);
+            var latlng = [lat, lon];
+            map.setView(latlng, 16);
+            marker.setLatLng(latlng);
+            updateCoords(lat, lon);
+          } else {
+            alert('Place not found. Try another search query.');
+          }
+        })
+        .catch(function(err) {
+          console.error(err);
+          alert('Error searching for place. Please try again.');
+        });
+    }
+
+    function confirmLocation() {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'LOCATION_SELECTED',
+          lat: selectedCoords.lat,
+          lng: selectedCoords.lng
+        }));
+      }
+    }
+  </script>
+</body>
+</html>
+`;
 
 interface PostJobModalProps {
   visible: boolean;
@@ -107,6 +252,12 @@ const postJobSchema = z.object({
         message: 'House number is required',
         path: ['houseNumber'],
       });
+    } else if (!/^\d+$/.test(val.houseNumber.trim())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'House number must contain only numbers',
+        path: ['houseNumber'],
+      });
     }
     if (!val.streetNumber || val.streetNumber.trim() === '') {
       ctx.addIssue({
@@ -119,6 +270,12 @@ const postJobSchema = z.object({
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Zip code is required',
+        path: ['zipCode'],
+      });
+    } else if (!/^\d+$/.test(val.zipCode.trim())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Zip code must contain only numbers',
         path: ['zipCode'],
       });
     }
@@ -146,6 +303,8 @@ export default function PostJobModal({
   const [showCityDropdown, setShowCityDropdown] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [postedSuccess, setPostedSuccess] = useState(false);
+  const [loadingGps, setLoadingGps] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
 
   const { user } = useAuth();
   const country = getCountryFromPhone(user?.phoneNumber);
@@ -220,6 +379,62 @@ export default function PostJobModal({
       setSavedLocationDetails(null);
     }
   }, [visible, user?.location_id, setValue]);
+
+  const fetchGpsLocation = async (silent = false) => {
+    setLoadingGps(true);
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        if (!silent) {
+          Alert.alert('Permission Denied', 'Permission to access location was denied. Please input pin location manually.');
+        }
+        return;
+      }
+      let loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setValue('pinLocation', `${loc.coords.latitude}, ${loc.coords.longitude}`, { shouldValidate: true });
+    } catch (err: any) {
+      if (!silent) {
+        Alert.alert('GPS Error', 'Failed to retrieve your current location.');
+      }
+      console.error(err);
+    } finally {
+      setLoadingGps(false);
+    }
+  };
+
+  useEffect(() => {
+    if (visible && !watchedUseSavedLocation && !watchedPinLocation) {
+      fetchGpsLocation(true);
+    }
+  }, [visible, watchedUseSavedLocation]);
+
+  const getInitialCoords = () => {
+    if (watchedPinLocation) {
+      const parts = watchedPinLocation.split(',');
+      if (parts.length === 2) {
+        const lat = parseFloat(parts[0].trim());
+        const lng = parseFloat(parts[1].trim());
+        if (!isNaN(lat) && !isNaN(lng)) {
+          return { lat, lng };
+        }
+      }
+    }
+    return { lat: 31.5204, lng: 74.3587 }; // Default fallback (Lahore)
+  };
+
+  const handleMapMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'LOCATION_SELECTED') {
+        setValue('pinLocation', `${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}`, { shouldValidate: true });
+        setShowMapPicker(false);
+      }
+    } catch (err) {
+      console.error('Failed to parse WebView message:', err);
+    }
+  };
 
   // Reset area when city changes
   useEffect(() => {
@@ -636,6 +851,7 @@ export default function PostJobModal({
                             value={value}
                             onChangeText={onChange}
                             onBlur={onBlur}
+                            keyboardType='numeric'
                           />
                         )}
                       />
@@ -685,19 +901,37 @@ export default function PostJobModal({
                       )}
 
                       {/* Pin Location */}
-                      <Text style={styles.inputLabel}>Pin Location / Coordinates</Text>
+                      <Text style={styles.inputLabel}>Pin Location / GPS Coordinates</Text>
                       <Controller
                         control={control}
                         name="pinLocation"
-                        render={({ field: { onChange, onBlur, value } }) => (
-                          <TextInput
-                            style={[styles.textInput, errors.pinLocation && styles.inputError]}
-                            placeholder="E.g. 31.5204, 74.3587"
-                            placeholderTextColor="#9CA3AF"
-                            value={value}
-                            onChangeText={onChange}
-                            onBlur={onBlur}
-                          />
+                        render={({ field: { onChange, value } }) => (
+                          <View style={styles.gpsRow}>
+                            <TextInput
+                              style={[styles.textInput, { flex: 1 }, errors.pinLocation && styles.inputError]}
+                              placeholder="E.g. 31.5204, 74.3587"
+                              placeholderTextColor="#9CA3AF"
+                              value={value}
+                              onChangeText={onChange}
+                            />
+                            <Pressable
+                              style={styles.mapTriggerBtn}
+                              onPress={() => setShowMapPicker(true)}
+                            >
+                              <Ionicons name="map-outline" size={20} color="#FFFFFF" />
+                            </Pressable>
+                            <Pressable
+                              style={[styles.gpsBtnSquare, loadingGps && styles.gpsBtnLoading]}
+                              onPress={() => fetchGpsLocation(false)}
+                              disabled={loadingGps}
+                            >
+                              {loadingGps ? (
+                                <ActivityIndicator size="small" color="#FFFFFF" />
+                              ) : (
+                                <Ionicons name="locate-outline" size={20} color="#FFFFFF" />
+                              )}
+                            </Pressable>
+                          </View>
                         )}
                       />
                       {errors.pinLocation && (
@@ -819,28 +1053,28 @@ export default function PostJobModal({
                       <Text style={styles.reviewValue}>
                         {watchedUseSavedLocation
                           ? (savedLocationDetails
-                              ? ((loc) => {
-                                  const getCityName = (loc: any) => {
-                                    if (!loc) return '';
-                                    if (typeof loc.city === 'object') return loc.city?.name || '';
-                                    if (loc.city_name) return loc.city_name;
-                                    return `City ID: ${loc.city_id || loc.city || ''}`;
-                                  };
-                                  const getAreaName = (loc: any) => {
-                                    if (!loc) return '';
-                                    if (typeof loc.area === 'object') return loc.area?.name || '';
-                                    if (loc.area_name) return loc.area_name;
-                                    return `Area ID: ${loc.area_id || loc.area || ''}`;
-                                  };
-                                  const parts = [
-                                    loc.house_number ? `House ${loc.house_number}` : null,
-                                    loc.street_number ? `Street ${loc.street_number}` : null,
-                                    getAreaName(loc),
-                                    getCityName(loc),
-                                  ].filter(Boolean);
-                                  return parts.join(', ');
-                                })(savedLocationDetails)
-                              : 'Saved Location')
+                            ? ((loc) => {
+                              const getCityName = (loc: any) => {
+                                if (!loc) return '';
+                                if (typeof loc.city === 'object') return loc.city?.name || '';
+                                if (loc.city_name) return loc.city_name;
+                                return `City ID: ${loc.city_id || loc.city || ''}`;
+                              };
+                              const getAreaName = (loc: any) => {
+                                if (!loc) return '';
+                                if (typeof loc.area === 'object') return loc.area?.name || '';
+                                if (loc.area_name) return loc.area_name;
+                                return `Area ID: ${loc.area_id || loc.area || ''}`;
+                              };
+                              const parts = [
+                                loc.house_number ? `House ${loc.house_number}` : null,
+                                loc.street_number ? `Street ${loc.street_number}` : null,
+                                getAreaName(loc),
+                                getCityName(loc),
+                              ].filter(Boolean);
+                              return parts.join(', ');
+                            })(savedLocationDetails)
+                            : 'Saved Location')
                           : `${watchedHouseNumber ? `House ${watchedHouseNumber}, ` : ''}${watchedStreetNumber ? `Street ${watchedStreetNumber}, ` : ''}${watchedArea}, ${watchedCity}`}
                       </Text>
                     </View>
@@ -952,6 +1186,28 @@ export default function PostJobModal({
           </>
         )}
       </KeyboardAvoidingView>
+
+      {/* WebView Map Picker Modal */}
+      <Modal visible={showMapPicker} animationType="slide" onRequestClose={() => setShowMapPicker(false)}>
+        <View style={styles.mapModalContainer}>
+          {/* Header */}
+          <View style={[styles.mapHeader, { paddingTop: Math.max(insets.top, 16) }]}>
+            <Pressable onPress={() => setShowMapPicker(false)} style={styles.mapBackBtn}>
+              <Ionicons name="close" size={24} color="#FFFFFF" />
+            </Pressable>
+            <Text style={styles.mapHeaderTitle}>Select Location on Map</Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <WebView
+            style={{ flex: 1 }}
+            originWhitelist={['*']}
+            source={{ html: getLeafletHtml(getInitialCoords().lat, getInitialCoords().lng) }}
+            javaScriptEnabled={true}
+            onMessage={handleMapMessage}
+          />
+        </View>
+      </Modal>
     </Modal>
   );
 }
@@ -1363,5 +1619,65 @@ const styles = StyleSheet.create({
   savedLocationError: {
     fontSize: 13,
     color: '#EF4444',
+  },
+  gpsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  gpsBtn: {
+    backgroundColor: '#082C18',
+    height: 48,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    marginLeft: 10,
+  },
+  gpsBtnLoading: {
+    opacity: 0.7,
+  },
+  gpsBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  mapModalContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  mapHeader: {
+    backgroundColor: '#082C18',
+    paddingBottom: 15,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  mapBackBtn: {
+    padding: 4,
+  },
+  mapHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  mapTriggerBtn: {
+    backgroundColor: '#10B981',
+    height: 48,
+    width: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  gpsBtnSquare: {
+    backgroundColor: '#082C18',
+    height: 48,
+    width: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
   },
 });

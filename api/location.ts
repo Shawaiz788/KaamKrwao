@@ -11,7 +11,7 @@ export { Area, getAreas, getAreasByCity, createArea };
 
 export interface UserLocation {
   id?: number;
-  house_number?: string;
+  house_number?: number;
   street_number?: string;
   area?: number;
   city?: number;
@@ -21,7 +21,7 @@ export interface UserLocation {
   country_id?: number;
   landmark?: string;
   pin_location?: string;
-  zip_code?: string;
+  zip_code?: number;
 }
 
 export const createLocation = async (location: UserLocation): Promise<UserLocation> => {
@@ -36,7 +36,7 @@ export const createLocation = async (location: UserLocation): Promise<UserLocati
 
   const responseText = await response.text();
   console.log('[createLocation API] Response Status:', response.status);
-  // console.log('[createLocation API] Response Body:', responseText);
+  console.log('[createLocation API] Response Body:', responseText);
 
   if (!response.ok) {
     throw new Error(`Failed to create location. Status: ${response.status}. Response: ${responseText}`);
@@ -145,10 +145,10 @@ export const getOrCreateLocationChain = async (input: LocationChainInput): Promi
     country_id: countryId,
     city_id: cityId,
     area_id: areaId,
-    house_number: houseNumber,
+    house_number: houseNumber ? Number(houseNumber) : undefined,
     street_number: streetNumber,
     pin_location: pinLocation,
-    zip_code: zipCode,
+    zip_code: zipCode ? Number(zipCode) : undefined,
     landmark,
   };
 
