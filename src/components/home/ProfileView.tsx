@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 interface ProfileViewProps {
   userName: string;
@@ -19,6 +20,7 @@ interface ProfileViewProps {
 
 export default function ProfileView({ userName, userEmail, onSignOut }: ProfileViewProps) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const profileOptions = [
     { icon: 'person-outline', label: 'Edit Profile', color: '#1F2937' },
     { icon: 'calendar-outline', label: 'My Bookings', color: '#1F2937' },
@@ -32,7 +34,12 @@ export default function ProfileView({ userName, userEmail, onSignOut }: ProfileV
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
       {/* Header Profile Section */}
       <View style={[styles.header, { paddingTop: insets.top > 0 ? insets.top + 10 : 20 }]}>
-        <Text style={styles.headerTitle}>Profile</Text>
+        <View style={styles.headerTop}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </Pressable>
+          <Text style={styles.headerTitle}>Settings</Text>
+        </View>
 
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
@@ -98,12 +105,20 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 28,
     alignItems: 'center',
   },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 20,
+  },
+  backBtn: {
+    marginRight: 12,
+    padding: 4,
+  },
   headerTitle: {
     fontSize: 22,
     fontWeight: '800',
     color: '#FFFFFF',
-    alignSelf: 'flex-start',
-    marginBottom: 25,
   },
   profileCard: {
     alignItems: 'center',

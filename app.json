@@ -26,7 +26,12 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.shawaiz788.kaamkrwao",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAsSDpd_QbL7vqXHBU6rq1Catib72B0yYI"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png",
