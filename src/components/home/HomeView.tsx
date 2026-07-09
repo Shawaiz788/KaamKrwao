@@ -24,6 +24,10 @@ import * as Location from 'expo-location';
 import { useAuth } from '../../provider/auth';
 import { usePostJob, Task } from '../../provider/post-job';
 import ActiveTaskScreen from './ActiveTaskScreen';
+import DrawerPanel from './DrawerPanel';
+import TaskHistoryModal from './TaskHistoryModal';
+import SearchLocationModal from './SearchLocationModal';
+import PinAdjusterModal from './PinAdjusterModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -155,51 +159,7 @@ const getLeafletHtml = (lat: number, lng: number) => `
 </html>
 `;
 
-// Full screen map adjuster HTML (using center coordinate directly with no offset)
-const getAdjusterLeafletHtml = (lat: number, lng: number) => `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <style>
-    body { margin: 0; padding: 0; background: #EAE6DF; }
-    #map { height: 100vh; width: 100vw; }
-    .leaflet-control-zoom { display: none !important; }
-    .leaflet-control-attribution { display: none !important; }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <script>
-    var map = L.map('map', { 
-      zoomControl: false, 
-      attributionControl: false,
-      fadeAnimation: true,
-      zoomAnimation: true
-    }).setView([${lat}, ${lng}], 16);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 20,
-      subdomains: 'abcd'
-    }).addTo(map);
-
-    map.on('moveend', function() {
-      var center = map.getCenter();
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'REGION_CHANGED',
-          latitude: center.lat,
-          longitude: center.lng
-        }));
-      }
-    });
-  </script>
-</body>
-</html>
-`;
 
 
 export default function HomeView({ userName }: HomeViewProps) {
@@ -235,8 +195,6 @@ export default function HomeView({ userName }: HomeViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchingLocation, setSearchingLocation] = useState(false);
-  const [adjusterCoords, setAdjusterCoords] = useState({ latitude: 31.5204, longitude: 74.3587 });
-  const [adjusterAddress, setAdjusterAddress] = useState('');
 
   // Animated swipe handling via PanResponder
   const panResponder = useRef(
@@ -375,11 +333,13 @@ export default function HomeView({ userName }: HomeViewProps) {
       if (webViewRef.current) {
         const jsCode = `
           if (map) {
-            map.setView([${newCoords.latitude}, ${newCoords.longitude}], 15);
+            var targetLatLng = L.latLng(${newCoords.latitude}, ${newCoords.longitude});
+            var targetPoint = map.project(targetLatLng, 15);
             var size = map.getSize();
-            var tgt = L.point(size.x / 2, size.y * 0.35);
-            var ctr = L.point(size.x / 2, size.y / 2);
-            map.panBy(ctr.subtract(tgt), { animate: false });
+            var offset = L.point(0, size.y * (0.5 - 0.35));
+            var centerPoint = targetPoint.add(offset);
+            var centerLatLng = map.unproject(centerPoint, 15);
+            map.setView(centerLatLng, 15);
           }
           true;
         `;
@@ -452,6 +412,18 @@ export default function HomeView({ userName }: HomeViewProps) {
     }
   };
 
+  const openSearchModal = () => {
+    const defaultPlaceholder = 'Fetching location...';
+    if (address && address !== defaultPlaceholder) {
+      setSearchQuery(address);
+      searchLocations(address);
+    } else {
+      setSearchQuery('');
+      setSearchResults([]);
+    }
+    setSearchModalVisible(true);
+  };
+
   const selectSearchResult = (item: any) => {
     const newCoords = {
       latitude: item.latitude,
@@ -464,11 +436,13 @@ export default function HomeView({ userName }: HomeViewProps) {
       if (webViewRef.current) {
         const jsCode = `
           if (map) {
-            map.setView([${newCoords.latitude}, ${newCoords.longitude}], 15);
+            var targetLatLng = L.latLng(${newCoords.latitude}, ${newCoords.longitude});
+            var targetPoint = map.project(targetLatLng, 15);
             var size = map.getSize();
-            var tgt = L.point(size.x / 2, size.y * 0.35);
-            var ctr = L.point(size.x / 2, size.y / 2);
-            map.panBy(ctr.subtract(tgt), { animate: false });
+            var offset = L.point(0, size.y * (0.5 - 0.35));
+            var centerPoint = targetPoint.add(offset);
+            var centerLatLng = map.unproject(centerPoint, 15);
+            map.setView(centerLatLng, 15);
           }
           true;
         `;
@@ -479,65 +453,26 @@ export default function HomeView({ userName }: HomeViewProps) {
     setSearchModalVisible(false);
   };
 
-  const openPinAdjuster = () => {
-    setAdjusterCoords(mapCoords);
-    setAdjusterAddress(address);
-    setPinAdjusterVisible(true);
-  };
-
-  const confirmAdjustedLocation = () => {
-    setMapCoords(adjusterCoords);
+  const confirmAdjustedLocation = (coords: { latitude: number; longitude: number }, addressStr: string) => {
+    setMapCoords(coords);
     if (webViewRef.current) {
       const jsCode = `
         if (map) {
-          map.setView([${adjusterCoords.latitude}, ${adjusterCoords.longitude}], 15);
+          var targetLatLng = L.latLng(${coords.latitude}, ${coords.longitude});
+          var targetPoint = map.project(targetLatLng, 15);
           var size = map.getSize();
-          var tgt = L.point(size.x / 2, size.y * 0.35);
-          var ctr = L.point(size.x / 2, size.y / 2);
-          map.panBy(ctr.subtract(tgt), { animate: false });
+          var offset = L.point(0, size.y * (0.5 - 0.35));
+          var centerPoint = targetPoint.add(offset);
+          var centerLatLng = map.unproject(centerPoint, 15);
+          map.setView(centerLatLng, 15);
         }
         true;
       `;
       webViewRef.current.injectJavaScript(jsCode);
     }
-    setAddress(adjusterAddress);
+    setAddress(addressStr);
     setPinAdjusterVisible(false);
     setSearchModalVisible(false);
-  };
-
-  const handleAdjusterMapMessage = (event: any) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'REGION_CHANGED') {
-        setAdjusterCoords({
-          latitude: data.latitude,
-          longitude: data.longitude,
-        });
-        reverseGeocodeAdjuster(data.latitude, data.longitude);
-      }
-    } catch (e) {
-      // JSON parse error
-    }
-  };
-
-  const reverseGeocodeAdjuster = async (lat: number, lng: number) => {
-    try {
-      let response = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-      if (response && response.length > 0) {
-        const item = response[0];
-        const parts = [
-          item.name,
-          item.street,
-          item.district || item.subregion,
-          item.city,
-        ].filter(Boolean);
-        setAdjusterAddress(parts.join(', ') || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
-      } else {
-        setAdjusterAddress(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
-      }
-    } catch (e) {
-      setAdjusterAddress(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
-    }
   };
 
   const handleMapMessage = (event: any) => {
@@ -617,6 +552,19 @@ export default function HomeView({ userName }: HomeViewProps) {
     }
   ];
 
+  const locateBtnStyle = [
+    styles.locateBtn,
+    {
+      bottom: keyboardHeight > 0 ? keyboardHeight + 460 : 460,
+      transform: [{
+        translateY: sheetTranslateY.interpolate({
+          inputRange: [0, 250],
+          outputRange: [0, 200],
+        })
+      }]
+    }
+  ];
+
   return (
     <View style={styles.container}>
       {/* 1. MAP BACKGROUND (PREMIUM WEBVIEW WITH CARTODB POSITRON) */}
@@ -656,17 +604,7 @@ export default function HomeView({ userName }: HomeViewProps) {
 
       {/* FLOATING LOCATION RE-CENTER BUTTON */}
       {!loadingLocation && initialCoords && (
-        <Animated.View style={[
-          styles.locateBtn,
-          {
-            transform: [{
-              translateY: sheetTranslateY.interpolate({
-                inputRange: [0, 250],
-                outputRange: [0, 200],
-              })
-            }]
-          }
-        ]}>
+        <Animated.View style={locateBtnStyle}>
           <Pressable onPress={reCenterMap} style={styles.locateBtnPressable}>
             <Ionicons name="locate" size={24} color="#10B981" />
           </Pressable>
@@ -742,7 +680,7 @@ export default function HomeView({ userName }: HomeViewProps) {
 
           <View style={styles.inputContainer}>
             {/* Location / Address display (Tap to search) */}
-            <Pressable style={styles.addressPill} onPress={() => setSearchModalVisible(true)}>
+            <Pressable style={styles.addressPill} onPress={openSearchModal}>
               <Ionicons name="location" size={18} color="#EF4444" style={{ marginRight: 8 }} />
               <Text style={styles.addressText} numberOfLines={1}>
                 {address}
@@ -806,77 +744,18 @@ export default function HomeView({ userName }: HomeViewProps) {
       </Animated.View>
 
       {/* 6. CUSTOM SLIDE-OUT DRAWER */}
-      {drawerOpen && (
-        <Pressable style={styles.drawerBackdrop} onPress={() => toggleDrawer(false)} />
-      )}
-      <Animated.View style={[styles.drawerPanel, { transform: [{ translateX: drawerAnim }] }]}>
-        <View style={[styles.drawerHeader, { paddingTop: insets.top > 0 ? insets.top + 20 : 30 }]}>
-          <View style={styles.drawerAvatarCircle}>
-            <Text style={styles.drawerAvatarText}>
-              {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
-            </Text>
-          </View>
-          <Text style={styles.drawerName}>{user?.displayName || 'App User'}</Text>
-          <Text style={styles.drawerPhone}>{user?.phoneNumber || 'No phone registered'}</Text>
-          <View style={styles.drawerVerifiedBadge}>
-            <Ionicons name="checkmark-circle" size={14} color="#10B981" style={{ marginRight: 4 }} />
-            <Text style={styles.drawerVerifiedLabel}>Verified User</Text>
-          </View>
-
-          {/* User Rating Pill */}
-          <View style={styles.drawerRatingContainer}>
-            <Ionicons name="star" size={13} color="#F59E0B" style={{ marginRight: 4 }} />
-            <Text style={styles.drawerRatingValue}>4.9</Text>
-            <Text style={styles.drawerRatingCount}>• 28 Tasks</Text>
-          </View>
-        </View>
-
-        <View style={[styles.drawerItemsContainer, { paddingBottom: insets.bottom > 0 ? insets.bottom + 8 : 16 }]}>
-          {activeTask && (
-            <Pressable
-              style={styles.drawerItem}
-              onPress={() => {
-                toggleDrawer(false);
-                setViewActiveTaskScreen(true);
-              }}
-            >
-              <Ionicons name="flash-outline" size={20} color="#10B981" style={styles.drawerItemIcon} />
-              <Text style={[styles.drawerItemLabel, { color: '#10B981', fontWeight: '700' }]}>
-                Active Request
-              </Text>
-            </Pressable>
-          )}
-
-          <Pressable
-            style={styles.drawerItem}
-            onPress={() => {
-              toggleDrawer(false);
-              setHistoryVisible(true);
-            }}
-          >
-            <Ionicons name="time-outline" size={20} color="#374151" style={styles.drawerItemIcon} />
-            <Text style={styles.drawerItemLabel}>Task History</Text>
-          </Pressable>
-
-          <Pressable
-            style={styles.drawerItem}
-            onPress={() => {
-              toggleDrawer(false);
-              router.push('/profile');
-            }}
-          >
-            <Ionicons name="settings-outline" size={20} color="#374151" style={styles.drawerItemIcon} />
-            <Text style={styles.drawerItemLabel}>Settings</Text>
-          </Pressable>
-
-          <View style={styles.drawerDivider} />
-
-          <Pressable style={[styles.drawerItem, styles.logoutItem]} onPress={handleSignOut}>
-            <Ionicons name="log-out-outline" size={20} color="#EF4444" style={styles.drawerItemIcon} />
-            <Text style={styles.drawerLogoutLabel}>Sign Out</Text>
-          </Pressable>
-        </View>
-      </Animated.View>
+      <DrawerPanel
+        open={drawerOpen}
+        onClose={() => toggleDrawer(false)}
+        user={user}
+        activeTask={activeTask}
+        onOpenActiveRequest={() => setViewActiveTaskScreen(true)}
+        onOpenHistory={() => setHistoryVisible(true)}
+        onSignOut={handleSignOut}
+        drawerAnim={drawerAnim}
+        insets={insets}
+        router={router}
+      />
 
       {/* 7. ACTIVE TASK FULL SCREEN OVERLAY */}
       {viewActiveTaskScreen && (
@@ -886,199 +765,35 @@ export default function HomeView({ userName }: HomeViewProps) {
       )}
 
       {/* 8. TASK HISTORY MODAL OVERLAY */}
-      <Modal
+      <TaskHistoryModal
         visible={historyVisible}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setHistoryVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.historyBox}>
-            <View style={styles.historyBoxHeader}>
-              <Text style={styles.historyTitle}>Task History</Text>
-              <Pressable onPress={() => setHistoryVisible(false)} style={styles.historyCloseBtn}>
-                <Ionicons name="close" size={24} color="#374151" />
-              </Pressable>
-            </View>
-
-            <ScrollView contentContainerStyle={styles.historyList}>
-              {taskHistory.length === 0 ? (
-                <View style={styles.emptyHistory}>
-                  <Ionicons name="receipt-outline" size={48} color="#D1D5DB" />
-                  <Text style={styles.emptyHistoryText}>No tasks created yet.</Text>
-                </View>
-              ) : (
-                taskHistory.map((task) => (
-                  <View key={task.id} style={styles.historyItemCard}>
-                    <View style={styles.historyItemHeader}>
-                      <Text style={styles.historyItemCategory}>{task.category}</Text>
-                      <View
-                        style={[
-                          styles.historyStatusBadge,
-                          {
-                            backgroundColor:
-                              task.status === 'completed' ? '#D1FAE5' : '#FEE2E2',
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.historyStatusText,
-                            {
-                              color: task.status === 'completed' ? '#065F46' : '#991B1B',
-                            },
-                          ]}
-                        >
-                          {task.status.toUpperCase()}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text style={styles.historyItemDesc}>{task.description}</Text>
-                    <View style={styles.historyItemMeta}>
-                      <Text style={styles.historyItemCost}>Rs. {task.budget}</Text>
-                      <Text style={styles.historyItemTime}>{task.createdAt}</Text>
-                    </View>
-                  </View>
-                ))
-              )}
-            </ScrollView>
-
-            {taskHistory.length > 0 && (
-              <Pressable
-                style={styles.clearHistoryBtn}
-                onPress={() => {
-                  Alert.alert(
-                    'Clear History',
-                    'Are you sure you want to clear your task history?',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Clear', style: 'destructive', onPress: clearHistory },
-                    ]
-                  );
-                }}
-              >
-                <Text style={styles.clearHistoryBtnText}>Clear History</Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setHistoryVisible(false)}
+        taskHistory={taskHistory}
+        clearHistory={clearHistory}
+      />
 
       {/* 9. SEARCH LOCATION MODAL */}
-      <Modal
+      <SearchLocationModal
         visible={searchModalVisible}
-        animationType="slide"
-        onRequestClose={() => setSearchModalVisible(false)}
-      >
-        <View style={styles.searchModalContainer}>
-          <View style={[styles.searchHeaderRow, { paddingTop: insets.top > 0 ? insets.top + 10 : 20 }]}>
-            <Pressable onPress={() => setSearchModalVisible(false)} style={styles.searchBackBtn}>
-              <Ionicons name="arrow-back" size={24} color="#111827" />
-            </Pressable>
-            <View style={styles.searchInputWrapper}>
-              <TextInput
-                style={styles.searchTextInput}
-                placeholder="Search destination address..."
-                placeholderTextColor="#9CA3AF"
-                value={searchQuery}
-                onChangeText={searchLocations}
-                autoFocus
-              />
-              {searchQuery.length > 0 && (
-                <Pressable onPress={() => { setSearchQuery(''); setSearchResults([]); }} style={styles.searchClearBtn}>
-                  <Ionicons name="close-circle" size={18} color="#9CA3AF" />
-                </Pressable>
-              )}
-            </View>
-            <Pressable onPress={openPinAdjuster} style={styles.searchMapBtn}>
-              <Text style={styles.searchMapBtnText}>Map</Text>
-            </Pressable>
-          </View>
-
-          {searchingLocation && (
-            <ActivityIndicator size="small" color="#10B981" style={{ marginVertical: 20 }} />
-          )}
-
-          <ScrollView style={styles.searchResultsList} keyboardShouldPersistTaps="handled">
-            {searchResults.map((item) => (
-              <Pressable
-                key={item.id}
-                style={styles.searchResultItem}
-                onPress={() => selectSearchResult(item)}
-              >
-                <View style={styles.searchResultIconCircle}>
-                  <Ionicons
-                    name={
-                      item.type === 'university' || item.type === 'college' || item.type === 'school'
-                        ? 'school'
-                        : item.type === 'shop' || item.type === 'mall' || item.type === 'supermarket'
-                          ? 'basket'
-                          : 'location'
-                    }
-                    size={20}
-                    color="#4B5563"
-                  />
-                </View>
-                <View style={styles.searchResultTextContainer}>
-                  <Text style={styles.searchResultName} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  <Text style={styles.searchResultAddress} numberOfLines={1}>
-                    {item.address}
-                  </Text>
-                </View>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-      </Modal>
+        onClose={() => setSearchModalVisible(false)}
+        searchQuery={searchQuery}
+        onSearchQueryChange={searchLocations}
+        searchResults={searchResults}
+        searchingLocation={searchingLocation}
+        onSelectResult={selectSearchResult}
+        openPinAdjuster={() => setPinAdjusterVisible(true)}
+        insets={insets}
+      />
 
       {/* 10. MAP PIN ADJUSTER MODAL */}
-      <Modal
+      <PinAdjusterModal
         visible={pinAdjusterVisible}
-        animationType="slide"
-        onRequestClose={() => setPinAdjusterVisible(false)}
-      >
-        <View style={styles.adjusterContainer}>
-          {/* Full Screen Adjuster Map */}
-          <WebView
-            style={styles.adjusterMap}
-            source={{ html: getAdjusterLeafletHtml(adjusterCoords.latitude, adjusterCoords.longitude) }}
-            onMessage={handleAdjusterMapMessage}
-            scrollEnabled={false}
-            overScrollMode="never"
-          />
-
-          {/* Centered marker overlay */}
-          <View style={styles.adjusterPinContainer} pointerEvents="none">
-            <Ionicons name="location" size={44} color="#EF4444" style={styles.pinIcon} />
-          </View>
-
-          {/* Top Header floating banner */}
-          <View style={[styles.adjusterHeader, { top: insets.top > 0 ? insets.top + 10 : 20 }]}>
-            <Pressable onPress={() => setPinAdjusterVisible(false)} style={styles.adjusterBackBtn}>
-              <Ionicons name="arrow-back" size={24} color="#111827" />
-            </Pressable>
-            <Text style={styles.adjusterHeaderTitle}>Swipe to move map</Text>
-            <View style={{ width: 32 }} />
-          </View>
-
-          {/* Bottom address adjustment confirmation card */}
-          <View style={[styles.adjusterBottomCard, { paddingBottom: insets.bottom > 0 ? insets.bottom + 16 : 24 }]}>
-            <Text style={styles.adjusterCardTitle}>DESTINATION ADDRESS</Text>
-            <View style={styles.adjusterAddressRow}>
-              <Ionicons name="flag" size={20} color="#111827" style={{ marginRight: 10 }} />
-              <Text style={styles.adjusterAddressText} numberOfLines={2}>
-                {adjusterAddress || 'Loading address...'}
-              </Text>
-            </View>
-
-            <Pressable style={styles.adjusterDoneBtn} onPress={confirmAdjustedLocation}>
-              <Text style={styles.adjusterDoneBtnText}>Done</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setPinAdjusterVisible(false)}
+        initialCoords={mapCoords}
+        initialAddress={address}
+        onConfirm={confirmAdjustedLocation}
+        insets={insets}
+      />
     </View>
   );
 }
@@ -1381,238 +1096,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
   },
-
-  // CUSTOM DRAWER STYLING
-  drawerBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    zIndex: 998,
-  },
-  drawerPanel: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: width * 0.75,
-    backgroundColor: '#FFFFFF',
-    zIndex: 999,
-    shadowColor: '#000',
-    shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 16,
-  },
-  drawerHeader: {
-    backgroundColor: '#082C18',
-    padding: 20,
-    alignItems: 'center',
-  },
-  drawerAvatarCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: '#34D399',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    marginBottom: 10,
-  },
-  drawerAvatarText: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#082C18',
-  },
-  drawerName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 2,
-  },
-  drawerPhone: {
-    fontSize: 12,
-    color: '#A7F3D0',
-    marginBottom: 8,
-  },
-  drawerVerifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(52, 211, 153, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  drawerVerifiedLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#34D399',
-  },
-  drawerRatingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 12,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    marginTop: 8,
-  },
-  drawerRatingValue: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  drawerRatingCount: {
-    fontSize: 10,
-    color: '#D1FAE5',
-    marginLeft: 4,
-    fontWeight: '500',
-  },
-  drawerItemsContainer: {
-    padding: 16,
-    flex: 1,
-  },
-  drawerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-  },
-  drawerItemIcon: {
-    marginRight: 14,
-  },
-  drawerItemLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  drawerDivider: {
-    height: 1,
-    backgroundColor: '#F3F4F6',
-    marginVertical: 10,
-  },
-  logoutItem: {
-    marginTop: 'auto',
-  },
-  drawerLogoutLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#EF4444',
-  },
-
-  // HISTORY MODAL STYLING
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  historyBox: {
-    width: width * 0.88,
-    height: height * 0.7,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  historyBoxHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-    paddingBottom: 12,
-    marginBottom: 12,
-  },
-  historyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  historyCloseBtn: {
-    padding: 4,
-  },
-  historyList: {
-    paddingBottom: 10,
-  },
-  emptyHistory: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-  },
-  emptyHistoryText: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    marginTop: 10,
-  },
-  historyItemCard: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-    padding: 12,
-    marginBottom: 10,
-  },
-  historyItemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  historyItemCategory: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  historyStatusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  historyStatusText: {
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  historyItemDesc: {
-    fontSize: 12,
-    color: '#4B5563',
-    lineHeight: 16,
-    marginBottom: 8,
-  },
-  historyItemMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    paddingTop: 8,
-  },
-  historyItemCost: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#10B981',
-  },
-  historyItemTime: {
-    fontSize: 10,
-    color: '#9CA3AF',
-  },
-  clearHistoryBtn: {
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#EF4444',
-    height: 40,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  clearHistoryBtnText: {
-    color: '#EF4444',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-
-  // COLLAPSIBLE SHEET INTERNALS
   sheetHandleContainer: {
     width: '100%',
     paddingVertical: 8,
@@ -1642,187 +1125,5 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-
-  // SEARCH LOCATION MODAL
-  searchModalContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  searchHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-    gap: 8,
-  },
-  searchBackBtn: {
-    padding: 6,
-  },
-  searchInputWrapper: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 42,
-  },
-  searchTextInput: {
-    flex: 1,
-    fontSize: 14,
-    color: '#111827',
-    padding: 0,
-  },
-  searchClearBtn: {
-    padding: 4,
-  },
-  searchMapBtn: {
-    backgroundColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  searchMapBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  searchResultsList: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  searchResultItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  searchResultIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  searchResultTextContainer: {
-    flex: 1,
-  },
-  searchResultName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 2,
-  },
-  searchResultAddress: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-
-  // MAP PIN ADJUSTER MODAL
-  adjusterContainer: {
-    flex: 1,
-    position: 'relative',
-    backgroundColor: '#EAE6DF',
-  },
-  adjusterMap: {
-    width: width,
-    height: height,
-  },
-  adjusterPinContainer: {
-    position: 'absolute',
-    left: '50%',
-    top: '50%',
-    marginLeft: -22,
-    marginTop: -44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
-  adjusterHeader: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
-    zIndex: 5,
-  },
-  adjusterBackBtn: {
-    padding: 6,
-  },
-  adjusterHeaderTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  adjusterBottomCard: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 10,
-    zIndex: 5,
-  },
-  adjusterCardTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#6B7280',
-    letterSpacing: 0.5,
-    marginBottom: 12,
-  },
-  adjusterAddressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  adjusterAddressText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
-    lineHeight: 18,
-  },
-  adjusterDoneBtn: {
-    backgroundColor: '#EF4444',
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#EF4444',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  adjusterDoneBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 15,
   },
 });
