@@ -55,7 +55,7 @@ export default function DrawerPanel({
           </View>
           <Text style={styles.drawerName}>{user?.displayName || 'App User'}</Text>
           <Text style={styles.drawerPhone}>{user?.phoneNumber || 'No phone registered'}</Text>
-          
+
           <View style={styles.drawerVerifiedBadge}>
             <Ionicons name="checkmark-circle" size={14} color="#10B981" style={{ marginRight: 4 }} />
             <Text style={styles.drawerVerifiedLabel}>Verified User</Text>

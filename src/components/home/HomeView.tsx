@@ -540,7 +540,7 @@ export default function HomeView({ userName }: HomeViewProps) {
   // Dynamic styles extracted to render calculations (best practice)
   const activeTaskBannerStyle = [
     styles.activeTaskBanner,
-    { top: insets.top > 0 ? insets.top + 15 : 25 }
+    { top: insets.top > 0 ? insets.top + 10 : 20 }
   ];
 
   const bottomSheetStyle = [

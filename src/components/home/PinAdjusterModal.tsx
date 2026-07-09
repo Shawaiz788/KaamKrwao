@@ -199,8 +199,8 @@ export default function PinAdjusterModal({
             </Text>
           </View>
 
-          <Pressable 
-            style={styles.adjusterDoneBtn} 
+          <Pressable
+            style={styles.adjusterDoneBtn}
             onPress={() => onConfirm(adjusterCoords, adjusterAddress)}
           >
             <Text style={styles.adjusterDoneBtnText}>Done</Text>
