@@ -31,6 +31,18 @@ import PinAdjusterModal from './PinAdjusterModal';
 
 const { width, height } = Dimensions.get('window');
 
+const SHEET_HEIGHT = height * 0.8;
+const DEFAULT_HEIGHT = 420;
+const COLLAPSED_HEIGHT = 130;
+
+const MOCK_IMAGES = [
+  'https://images.unsplash.com/photo-1581094288338-2314dddb7ecc?w=150',
+  'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=150',
+  'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=150',
+  'https://images.unsplash.com/photo-1595841696660-ab619143309d?w=150',
+  'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=150',
+];
+
 interface HomeViewProps {
   userName: string;
   onNavigateToTab?: (tab: 'home' | 'browse' | 'messages' | 'profile') => void;
@@ -186,9 +198,14 @@ export default function HomeView({ userName }: HomeViewProps) {
   const [loadingLocation, setLoadingLocation] = useState(true);
   const [address, setAddress] = useState('Fetching location...');
 
-  // Collapsible Bottom Sheet State
-  const [sheetCollapsed, setSheetCollapsed] = useState(false);
-  const sheetTranslateY = useRef(new Animated.Value(0)).current;
+  // 3-state bottom sheet: 'collapsed', 'default', 'expanded'
+  const [sheetState, setSheetState] = useState<'collapsed' | 'default' | 'expanded'>('default');
+  const [lastNonDefaultState, setLastNonDefaultState] = useState<'collapsed' | 'expanded'>('expanded');
+  const sheetTranslateY = useRef(new Animated.Value(SHEET_HEIGHT - DEFAULT_HEIGHT)).current;
+
+  // Ref to hold current state to prevent PanResponder stale closures
+  const stateRef = useRef({ sheetState, lastNonDefaultState });
+  stateRef.current = { sheetState, lastNonDefaultState };
 
   // Search & Adjust Location States
   const [searchModalVisible, setSearchModalVisible] = useState(false);
@@ -196,6 +213,38 @@ export default function HomeView({ userName }: HomeViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchingLocation, setSearchingLocation] = useState(false);
+
+  // Bottom sheet categories toggle
+  const [showAllCategories, setShowAllCategories] = useState(false);
+
+  // Bottom sheet direct location fields (when expanded)
+  const [locStreet, setLocStreet] = useState('');
+  const [locArea, setLocArea] = useState('');
+  const [locCity, setLocCity] = useState('');
+  const [locSearchLoading, setLocSearchLoading] = useState(false);
+
+  // Form Attachments State
+  const [attachments, setAttachments] = useState<Array<{ id: string; uri: string; uploading: boolean }>>([]);
+
+  // Helper to chunk categories array into columns of 2 items
+  const get2RowCategories = () => {
+    const columns = [];
+    for (let i = 0; i < CATEGORIES.length; i += 2) {
+      columns.push(CATEGORIES.slice(i, i + 2));
+    }
+    return columns;
+  };
+
+  const getTranslateYValue = (state: 'collapsed' | 'default' | 'expanded') => {
+    switch (state) {
+      case 'expanded':
+        return 0;
+      case 'default':
+        return SHEET_HEIGHT - DEFAULT_HEIGHT;
+      case 'collapsed':
+        return SHEET_HEIGHT - COLLAPSED_HEIGHT;
+    }
+  };
 
   // Animated swipe handling via PanResponder
   const panResponder = useRef(
@@ -206,29 +255,57 @@ export default function HomeView({ userName }: HomeViewProps) {
         return Math.abs(gestureState.dy) > 5;
       },
       onPanResponderRelease: (_, gestureState) => {
-        // If it's a simple tap (minimal movement), toggle collapse
-        if (Math.abs(gestureState.dx) < 15 && Math.abs(gestureState.dy) < 15) {
-          setSheetCollapsed(prev => !prev);
-        } else if (gestureState.dy > 50) {
-          // Dragged down
-          setSheetCollapsed(true);
-        } else if (gestureState.dy < -50) {
-          // Dragged up
-          setSheetCollapsed(false);
+        const { sheetState: currentSheetState, lastNonDefaultState: currentLastNonDefault } = stateRef.current;
+        const isTap = Math.abs(gestureState.dx) < 15 && Math.abs(gestureState.dy) < 15;
+        const isSwipeDown = gestureState.dy > 25 || gestureState.vy > 0.25;
+        const isSwipeUp = gestureState.dy < -25 || gestureState.vy < -0.25;
+
+        if (isTap) {
+          // Tap cycle:
+          // 'collapsed' -> 'default'
+          // 'expanded' -> 'default'
+          // 'default' (last was 'collapsed') -> 'expanded'
+          // 'default' (last was 'expanded') -> 'collapsed'
+          if (currentSheetState === 'collapsed' || currentSheetState === 'expanded') {
+            setSheetState('default');
+          } else {
+            setSheetState(currentLastNonDefault === 'collapsed' ? 'expanded' : 'collapsed');
+          }
+        } else if (isSwipeDown) {
+          // Dragged/Swiped down
+          if (currentSheetState === 'expanded') {
+            setSheetState('default');
+          } else {
+            setSheetState('collapsed');
+          }
+        } else if (isSwipeUp) {
+          // Dragged/Swiped up
+          if (currentSheetState === 'collapsed') {
+            setSheetState('default');
+          } else {
+            setSheetState('expanded');
+          }
         }
       },
     })
   ).current;
 
-  // Animate bottom sheet collapse/expand
+  // Track the last non-default state for the tap cycle history
+  useEffect(() => {
+    if (sheetState !== 'default') {
+      setLastNonDefaultState(sheetState);
+    }
+  }, [sheetState]);
+
+  // Animate bottom sheet collapse/expand/fullscreen
   useEffect(() => {
     Animated.spring(sheetTranslateY, {
-      toValue: sheetCollapsed ? 250 : 0,
+      toValue: getTranslateYValue(sheetState),
       useNativeDriver: true,
       tension: 40,
       friction: 8,
     }).start();
-  }, [sheetCollapsed]);
+  }, [sheetState]);
 
   // Form Inputs State
   const [activeCategory, setActiveCategory] = useState<string>('Electrician');
@@ -382,6 +459,11 @@ export default function HomeView({ userName }: HomeViewProps) {
           item.city,
         ].filter(Boolean);
         setAddress(parts.join(', ') || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+
+        // Update local sheet input fields when map position is geocoded
+        setLocStreet(item.street || item.name || '');
+        setLocArea(item.district || item.subregion || '');
+        setLocCity(item.city || '');
       } else {
         setAddress(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
       }
@@ -492,6 +574,68 @@ export default function HomeView({ userName }: HomeViewProps) {
     setSearchModalVisible(false);
   };
 
+  const updateMapFromFields = async () => {
+    const queryParts = [locStreet, locArea, locCity].filter(Boolean);
+    if (queryParts.length === 0) {
+      Alert.alert('Empty Location', 'Please enter at least one location field.');
+      return;
+    }
+    const query = queryParts.join(', ');
+    setLocSearchLoading(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=pk&addressdetails=1`,
+        {
+          headers: {
+            'Accept-Language': 'en',
+            'User-Agent': 'KaamKrwaoApp/1.0',
+          },
+        }
+      );
+      const data = await response.json();
+      if (data && data.length > 0) {
+        const item = data[0];
+        const newCoords = {
+          latitude: parseFloat(item.lat),
+          longitude: parseFloat(item.lon),
+        };
+        setMapCoords(newCoords);
+        if (webViewRef.current) {
+          const jsCode = `
+            if (map) {
+              var targetLatLng = L.latLng(${newCoords.latitude}, ${newCoords.longitude});
+              var targetPoint = map.project(targetLatLng, 15);
+              var size = map.getSize();
+              var offset = L.point(0, size.y * (0.5 - 0.35));
+              var centerPoint = targetPoint.add(offset);
+              var centerLatLng = map.unproject(centerPoint, 15);
+              map.setView(centerLatLng, 15);
+            }
+            true;
+          `;
+          webViewRef.current.injectJavaScript(jsCode);
+        }
+        setAddress(item.display_name);
+
+        // Update fields if returned details are available
+        const addr = item.address;
+        if (addr) {
+          setLocStreet(addr.road || addr.suburb || locStreet);
+          setLocArea(addr.neighbourhood || addr.subregion || locArea);
+          setLocCity(addr.city || addr.town || addr.county || locCity);
+        }
+        Keyboard.dismiss();
+      } else {
+        Alert.alert('Not Found', 'Could not locate this address on the map. Try checking the spelling.');
+      }
+    } catch (error) {
+      console.error('Update map from fields error: ', error);
+      Alert.alert('Error', 'Unable to search for this location. Please check your network.');
+    } finally {
+      setLocSearchLoading(false);
+    }
+  };
+
   const handleMapMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
@@ -536,6 +680,29 @@ export default function HomeView({ userName }: HomeViewProps) {
     // Clear inputs for next time
     setBudget('');
     setDescription('');
+    setAttachments([]);
+  };
+
+  const handleAddAttachment = () => {
+    if (attachments.length >= 5) {
+      Alert.alert('Limit Reached', 'You can attach up to 5 images only.');
+      return;
+    }
+    const newId = Math.random().toString();
+    const newUri = MOCK_IMAGES[attachments.length % MOCK_IMAGES.length];
+
+    setAttachments(prev => [...prev, { id: newId, uri: newUri, uploading: true }]);
+
+    // Simulate upload completion after 1.5s
+    setTimeout(() => {
+      setAttachments(prev =>
+        prev.map(item => item.id === newId ? { ...item, uploading: false } : item)
+      );
+    }, 1500);
+  };
+
+  const handleRemoveAttachment = (id: string) => {
+    setAttachments(prev => prev.filter(item => item.id !== id));
   };
 
   const handleSignOut = async () => {
@@ -560,11 +727,15 @@ export default function HomeView({ userName }: HomeViewProps) {
     { top: insets.top > 0 ? insets.top + 10 : 20 }
   ];
 
+  const valDefault = SHEET_HEIGHT - DEFAULT_HEIGHT;
+  const valCollapsed = SHEET_HEIGHT - COLLAPSED_HEIGHT;
+
   const bottomSheetStyle = [
     styles.bottomSheet,
     {
       transform: [{ translateY: sheetTranslateY }],
       bottom: keyboardHeight,
+      height: SHEET_HEIGHT,
       paddingBottom: insets.bottom > 0 ? insets.bottom + 8 : 16
     }
   ];
@@ -572,13 +743,20 @@ export default function HomeView({ userName }: HomeViewProps) {
   const locateBtnStyle = [
     styles.locateBtn,
     {
-      bottom: keyboardHeight > 0 ? keyboardHeight + 460 : 460,
+      bottom: keyboardHeight > 0 ? keyboardHeight + DEFAULT_HEIGHT + 20 : DEFAULT_HEIGHT + 20,
+      opacity: sheetTranslateY.interpolate({
+        inputRange: [0, valDefault, valCollapsed],
+        outputRange: [0, 1, 1],
+        extrapolate: 'clamp',
+      }),
       transform: [{
         translateY: sheetTranslateY.interpolate({
-          inputRange: [0, 250],
-          outputRange: [0, 200],
+          inputRange: [0, valDefault, valCollapsed],
+          outputRange: [100, 0, valCollapsed - valDefault],
+          extrapolate: 'clamp',
         })
-      }]
+      }],
+      pointerEvents: (sheetState === 'expanded' ? 'none' : 'auto') as any,
     }
   ];
 
@@ -650,7 +828,7 @@ export default function HomeView({ userName }: HomeViewProps) {
           {...panResponder.panHandlers}
         >
           <View style={styles.sheetHandle} />
-          {sheetCollapsed && (
+          {sheetState === 'collapsed' && (
             <View style={styles.collapsedHeader}>
               <Text style={styles.collapsedAddressText} numberOfLines={1}>
                 📍 {address}
@@ -664,45 +842,179 @@ export default function HomeView({ userName }: HomeViewProps) {
 
         {/* Scrollable contents to handle short keyboard viewports */}
         <ScrollView
-          style={{ maxHeight: height * 0.4 }}
+          style={{ maxHeight: sheetState === 'expanded' ? SHEET_HEIGHT - 60 : height * 0.4 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom > 0 ? insets.bottom + 10 : 16 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          scrollEnabled={!sheetCollapsed}
+          scrollEnabled={sheetState !== 'collapsed'}
         >
           {/* Scrolling Categories Selection */}
-          <Text style={styles.sheetTitle}>What service do you need?</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesScroll}
-          >
-            {CATEGORIES.map((cat) => {
-              const isSelected = activeCategory === cat.name;
-              return (
-                <Pressable
-                  key={cat.name}
-                  style={[styles.categoryCard, isSelected && styles.categoryCardSelected]}
-                  onPress={() => setActiveCategory(cat.name)}
+          <View style={styles.sheetHeaderWithAction}>
+            <Text style={styles.sheetTitle}>What service do you need?</Text>
+            {sheetState === 'expanded' && (
+              <Pressable onPress={() => setShowAllCategories(!showAllCategories)} style={styles.seeAllBtn}>
+                <Text style={styles.seeAllBtnText}>
+                  {showAllCategories ? 'Show Less' : 'See All'}
+                </Text>
+                <Ionicons
+                  name={showAllCategories ? 'chevron-up' : 'chevron-down'}
+                  size={12}
+                  color="#10B981"
+                  style={{ marginLeft: 4 }}
+                />
+              </Pressable>
+            )}
+          </View>
+
+          {sheetState === 'expanded' ? (
+            showAllCategories ? (
+              <View style={styles.categoriesGrid}>
+                {CATEGORIES.map((cat) => {
+                  const isSelected = activeCategory === cat.name;
+                  return (
+                    <Pressable
+                      key={cat.name}
+                      style={[styles.categoryGridCard, isSelected && styles.categoryGridCardSelected]}
+                      onPress={() => setActiveCategory(cat.name)}
+                    >
+                      <View style={[styles.categoryIconCircle, { backgroundColor: cat.color + '15' }]}>
+                        <Ionicons name={cat.icon as any} size={22} color={isSelected ? '#10B981' : cat.color} />
+                      </View>
+                      <Text style={[styles.categoryGridLabel, isSelected && styles.categoryGridLabelSelected]} numberOfLines={1}>
+                        {cat.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={styles.categoriesGridScrollContainer}>
+                <ScrollView
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.categoriesGrid}
                 >
-                  <View style={[styles.categoryIconCircle, { backgroundColor: cat.color + '15' }]}>
-                    <Ionicons name={cat.icon as any} size={22} color={isSelected ? '#10B981' : cat.color} />
-                  </View>
-                  <Text style={[styles.categoryLabel, isSelected && styles.categoryLabelSelected]}>
-                    {cat.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+                  {CATEGORIES.map((cat) => {
+                    const isSelected = activeCategory === cat.name;
+                    return (
+                      <Pressable
+                        key={cat.name}
+                        style={[styles.categoryGridCard, isSelected && styles.categoryGridCardSelected]}
+                        onPress={() => setActiveCategory(cat.name)}
+                      >
+                        <View style={[styles.categoryIconCircle, { backgroundColor: cat.color + '15' }]}>
+                          <Ionicons name={cat.icon as any} size={22} color={isSelected ? '#10B981' : cat.color} />
+                        </View>
+                        <Text style={[styles.categoryGridLabel, isSelected && styles.categoryGridLabelSelected]} numberOfLines={1}>
+                          {cat.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoriesScroll}
+            >
+              {CATEGORIES.map((cat) => {
+                const isSelected = activeCategory === cat.name;
+                return (
+                  <Pressable
+                    key={cat.name}
+                    style={[styles.categoryCard, isSelected && styles.categoryCardSelected]}
+                    onPress={() => setActiveCategory(cat.name)}
+                  >
+                    <View style={[styles.categoryIconCircle, { backgroundColor: cat.color + '15' }]}>
+                      <Ionicons name={cat.icon as any} size={22} color={isSelected ? '#10B981' : cat.color} />
+                    </View>
+                    <Text style={[styles.categoryLabel, isSelected && styles.categoryLabelSelected]}>
+                      {cat.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          )}
 
           <View style={styles.inputContainer}>
-            {/* Location / Address display (Tap to search) */}
-            <Pressable style={styles.addressPill} onPress={openSearchModal}>
-              <Ionicons name="location" size={18} color="#EF4444" style={{ marginRight: 8 }} />
-              <Text style={styles.addressText} numberOfLines={1}>
-                {address}
-              </Text>
-            </Pressable>
+            {/* Location / Address display (Tap to search in default/collapsed, text input in expanded) */}
+            {sheetState === 'expanded' ? (
+              <View style={styles.sheetLocFormContainer}>
+                <Text style={styles.inputSectionTitle}>Update Location on Map</Text>
+
+                <View style={styles.sheetLocFormRow}>
+                  <View style={[styles.sheetLocInputWrapper, { flex: 1 }]}>
+                    <Text style={styles.sheetLocFieldLabel}>House / Street / Building</Text>
+                    <TextInput
+                      style={styles.sheetLocInput}
+                      placeholder="e.g. House 42, Street 3"
+                      placeholderTextColor="#9CA3AF"
+                      value={locStreet}
+                      onChangeText={setLocStreet}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.sheetLocFormRow}>
+                  <View style={[styles.sheetLocInputWrapper, { flex: 0.5 }]}>
+                    <Text style={styles.sheetLocFieldLabel}>Area / Neighborhood</Text>
+                    <TextInput
+                      style={styles.sheetLocInput}
+                      placeholder="e.g. DHA Phase 5"
+                      placeholderTextColor="#9CA3AF"
+                      value={locArea}
+                      onChangeText={setLocArea}
+                    />
+                  </View>
+                  <View style={[styles.sheetLocInputWrapper, { flex: 0.5 }]}>
+                    <Text style={styles.sheetLocFieldLabel}>City</Text>
+                    <TextInput
+                      style={styles.sheetLocInput}
+                      placeholder="e.g. Lahore"
+                      placeholderTextColor="#9CA3AF"
+                      value={locCity}
+                      onChangeText={setLocCity}
+                    />
+                  </View>
+                </View>
+
+
+
+                <Pressable
+                  style={[styles.sheetLocSubmitBtn, locSearchLoading && { opacity: 0.7 }]}
+                  onPress={updateMapFromFields}
+                  disabled={locSearchLoading}
+                >
+                  {locSearchLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="map-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.sheetLocSubmitBtnText}>Locate & Update Map</Text>
+                    </>
+                  )}
+                </Pressable>
+
+                {/* Display resolved address */}
+                <View style={styles.sheetCurrentAddressBanner}>
+                  <Ionicons name="location" size={14} color="#EF4444" style={{ marginRight: 6 }} />
+                  <Text style={styles.sheetCurrentAddressText} numberOfLines={2}>
+                    Current Map Center: {address}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <Pressable style={styles.addressPill} onPress={openSearchModal}>
+                <Ionicons name="location" size={18} color="#EF4444" style={{ marginRight: 8 }} />
+                <Text style={styles.addressText} numberOfLines={1}>
+                  {address}
+                </Text>
+              </Pressable>
+            )}
 
             {/* Budget Input & Payment selection in a Row */}
             <View style={styles.formRow}>
@@ -750,6 +1062,39 @@ export default function HomeView({ userName }: HomeViewProps) {
                 value={description}
                 onChangeText={setDescription}
               />
+            </View>
+
+            {/* Attachments Section */}
+            <View style={styles.attachmentsContainer}>
+              <Text style={styles.attachmentsTitle}>Attachments ({attachments.length}/5)</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.attachmentsRow}>
+                {attachments.map((item) => (
+                  <View key={item.id} style={styles.attachmentCard}>
+                    <Image source={{ uri: item.uri }} style={styles.attachmentImage} />
+
+                    {item.uploading ? (
+                      <View style={styles.uploadOverlay}>
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                        <Text style={styles.uploadText}>Uploading</Text>
+                      </View>
+                    ) : (
+                      <Pressable
+                        style={styles.removeBtn}
+                        onPress={() => handleRemoveAttachment(item.id)}
+                      >
+                        <Ionicons name="close-circle" size={20} color="#EF4444" />
+                      </Pressable>
+                    )}
+                  </View>
+                ))}
+
+                {attachments.length < 5 && (
+                  <Pressable style={styles.addAttachmentBtn} onPress={handleAddAttachment}>
+                    <Ionicons name="camera-outline" size={20} color="#6B7280" />
+                    <Text style={styles.addAttachmentText}>Add Photo</Text>
+                  </Pressable>
+                )}
+              </ScrollView>
             </View>
           </View>
 
@@ -1142,5 +1487,271 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // 3-stage sheet styles
+  sheetSearchContainer: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    marginVertical: 4,
+  },
+  inputSectionTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4B5563',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sheetSearchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    height: 40,
+  },
+  sheetSearchInput: {
+    flex: 1,
+    height: '100%',
+    fontSize: 13,
+    color: '#111827',
+    paddingHorizontal: 8,
+  },
+  sheetSearchResultsList: {
+    marginTop: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  sheetSearchResultCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  sheetSearchResultIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  sheetSearchResultNameText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  sheetSearchResultAddrText: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 1,
+  },
+  noResultsText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  sheetCurrentAddressBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  sheetCurrentAddressText: {
+    fontSize: 12,
+    color: '#4B5563',
+    flex: 1,
+    fontWeight: '500',
+  },
+  categoriesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 6,
+    marginVertical: 4,
+  },
+  categoryGridCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    borderRadius: 12,
+    width: '45.5%',
+    marginHorizontal: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.02,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  categoryGridCardSelected: {
+    borderColor: '#10B981',
+    backgroundColor: '#ECFDF5',
+    transform: [{ scale: 1.02 }],
+  },
+  categoryGridLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#374151',
+    marginLeft: 8,
+    flex: 1,
+  },
+  categoryGridLabelSelected: {
+    color: '#065F46',
+    fontWeight: '700',
+  },
+  // 3-stage sheet multi-field styles
+  sheetLocFormContainer: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    marginVertical: 4,
+    gap: 8,
+  },
+  sheetLocFormRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  sheetLocInputWrapper: {
+    flexDirection: 'column',
+    gap: 4,
+  },
+  sheetLocFieldLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#4B5563',
+    textTransform: 'uppercase',
+  },
+  sheetLocInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    height: 38,
+    paddingHorizontal: 10,
+    fontSize: 12,
+    color: '#111827',
+  },
+  sheetLocSubmitBtn: {
+    backgroundColor: '#10B981',
+    height: 38,
+    borderRadius: 10,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  sheetLocSubmitBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  categoriesGridScrollContainer: {
+    height: 135,
+    width: '100%',
+    marginVertical: 4,
+  },
+  sheetHeaderWithAction: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  seeAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    backgroundColor: '#ECFDF5',
+  },
+  seeAllBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  // Attachment styles
+  attachmentsContainer: {
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  attachmentsTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4B5563',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  attachmentsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  attachmentCard: {
+    width: 60,
+    height: 60,
+    borderRadius: 10,
+    position: 'relative',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  attachmentImage: {
+    width: '100%',
+    height: '100%',
+  },
+  uploadOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadText: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  removeBtn: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    zIndex: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+  },
+  addAttachmentBtn: {
+    width: 60,
+    height: 60,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#9CA3AF',
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 2,
+  },
+  addAttachmentText: {
+    fontSize: 8,
+    fontWeight: '600',
+    color: '#6B7280',
   },
 });

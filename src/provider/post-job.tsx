@@ -56,14 +56,14 @@ const PostJobContext = createContext<PostJobContextType>({
   bids: [],
   activeChatMessages: [],
   selectedCategory: null,
-  createTask: () => {},
-  cancelTask: () => {},
-  acceptBid: () => {},
-  completeTask: () => {},
-  sendActiveChatMessage: () => {},
-  clearHistory: () => {},
-  openPostJob: () => {},
-  closePostJob: () => {},
+  createTask: () => { },
+  cancelTask: () => { },
+  acceptBid: () => { },
+  completeTask: () => { },
+  sendActiveChatMessage: () => { },
+  clearHistory: () => { },
+  openPostJob: () => { },
+  closePostJob: () => { },
 });
 
 export function PostJobProvider({ children }: { children: React.ReactNode }) {
@@ -142,7 +142,7 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
             locationId: locationId,
           });
           console.log('[PostJobProvider] Backend task created successfully. ID:', createdBackend.id);
-          
+
           setActiveTask((prev) => {
             if (!prev || prev.id !== newTask.id) return prev;
             return {
