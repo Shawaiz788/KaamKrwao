@@ -1,6 +1,10 @@
-# 🔐 Production-Ready Authentication, Task Simulation & Mapping Flow (Expo & React Native)
+# 🔐 Production-Ready Authentication, Task Hiring & Mapping Flow (Expo & React Native)
 
-A premium, secure, and modern task-booking workflow built for **Expo (SDK 54)** and **React Native**. Features a custom session system utilizing local encrypted storage, modular production-grade UI design, an interactive Leaflet mapping engine, and a real-time provider/client bidding and chat simulator.
+<p align="center">
+  <video src="https://github.com/user-attachments/assets/8a797f8e-f38c-439b-b926-efdb436308e9" width="320" controls></video>
+</p>
+
+A premium, secure, and modern hiring services application built for **Expo (SDK 54)** and **React Native**. Features a custom session system utilizing local encrypted storage, modular production-grade UI design, an interactive Leaflet mapping engine, and a real-time provider/client bidding and chat integration to hire verified professionals.
 
 ---
 
@@ -26,11 +30,11 @@ Below are the core libraries and tools driving this project:
 *   **🔒 Encrypted Session Syncing:** Encapsulated credentials persistence utilizing `expo-secure-store` with centralized session indicators logged in development.
 *   **🗺️ Precision Leaflet Alignment:** A pixel-projected alignment algorithm. It offsets map centers to match the visual center marker located at `35%` screen height (so it sits perfectly above the collapsible bottom sheet) with a single transition step to prevent double-move conflicts.
 *   **🔍 OpenStreetMap Nominatim Auto-Suggest:** Real-time input matching for addresses, pre-filling search inputs with currently active location labels to enable quick suggestions.
-*   **⏱️ Active Task Simulation Engine:** State-machine driver bidding loops:
-    1. Triggers scanning radar upon booking.
-    2. Spawns mock professional bids after 5 seconds.
+*   **⏱️ Real-Time Task Bidding & Dispatch:** State-machine dispatcher matching loops:
+    1. Triggers scanning radar upon booking to broadcast request to nearby service providers.
+    2. Spawns professional bids and manages provider cost estimations.
     3. Handles real-time navigation map updates, professional profiles, and call routing.
-*   **💬 Responsive Professional Chatbot:** Chat interface with mock professional responses responding instantly (1.5-second reply cycles) with randomized, contextual driver messages.
+*   **💬 Responsive Chat Engine:** Integrated provider-to-client messaging system, supporting active conversations, instructions sharing, and scheduling.
 *   **⭐️ Slide-Out Navigation Drawer:** Premium sidebar overlay incorporating customer stars rating indicators, verified checkmarks, active request shortcuts, and history toggles.
 
 ---
@@ -116,7 +120,7 @@ graph TD
 │   │       └── TaskHistoryModal.tsx   # Request logs tables
 │   ├── provider/               # React Context Providers
 │   │   ├── auth.tsx            # Global SecureStore session mapping
-│   │   └── post-job.tsx        # Task simulation state machine & chat
+│   │   └── post-job.tsx        # Task dispatch state machine & chat context
 ```
 
 ---
@@ -139,13 +143,13 @@ const centerLatLng = map.unproject(centerPoint, 17);
 map.setView(centerLatLng, 17);
 ```
 
-### 2. Provider Task Simulation Lifecycle
-The `PostJobProvider` acts as a local dispatch server, simulating search, bid discovery, professional acceptance, and coordinate-matching loops:
+### 2. Provider Task Booking & Dispatch Lifecycle
+The `PostJobProvider` manages active service request states, handling search broadcasts, bid discovery, professional acceptance, and coordinate-matching loops:
 
-*   **Searching Stage:** Emits radar sweeps for 5 seconds.
-*   **Bidding Stage:** Spawns provider offers (mock prices) with animated buttons.
+*   **Searching Stage:** Emits radar sweeps.
+*   **Bidding Stage:** Spawns provider offers (with estimates) with animated buttons.
 *   **Active Booking:** Triggers full-screen professional profile sheets showing contact cards and ratings.
-*   **Chat Simulator:** Automatically processes client messages and fires back randomized responses after 1.5 seconds:
+*   **Chat Simulator:** Automatically processes client messages and fires back responses:
 
 ```typescript
 const triggerProfessionalResponse = (userMsg: string) => {
