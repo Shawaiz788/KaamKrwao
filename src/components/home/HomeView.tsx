@@ -22,6 +22,8 @@ import { useRouter } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
+import NetInfo from '@react-native-community/netinfo';
+import { getCategoriesFromBackend, Category, getPaymentPreferencesFromBackend, PaymentPreference } from '../../../api/task';
 import { useAuth } from '../../provider/auth';
 import { usePostJob, Task } from '../../provider/post-job';
 import ActiveTaskScreen from './ActiveTaskScreen';
@@ -91,23 +93,72 @@ export const MOCK_PROS: Pro[] = [
   },
 ];
 
-export const CATEGORIES = [
-  { name: 'Electrician', icon: 'flash', color: '#F97316' },
-  { name: 'Plumber', icon: 'build', color: '#A855F7' },
-  { name: 'AC Service', icon: 'snow', color: '#3B82F6' },
-  { name: 'Tutor', icon: 'school', color: '#10B981' },
-  { name: 'Mehndi', icon: 'leaf', color: '#84CC16' },
-  { name: 'Cleaning', icon: 'sparkles', color: '#EAB308' },
-  { name: 'Painter', icon: 'brush', color: '#EC4899' },
-  { name: 'Mason', icon: 'construct', color: '#EF4444' },
-  { name: 'Other', icon: 'ellipsis-horizontal', color: '#6B7280' },
-];
+const getCategoryStyle = (name: string) => {
+  const normalized = name.trim().toLowerCase();
+  const stylesMap: Record<string, { icon: string; color: string }> = {
+    'electrician': { icon: 'flash', color: '#F97316' },
+    'plumber': { icon: 'build', color: '#A855F7' },
+    'ac service': { icon: 'snow', color: '#3B82F6' },
+    'tutor': { icon: 'school', color: '#10B981' },
+    'mehndi': { icon: 'leaf', color: '#84CC16' },
+    'cleaning': { icon: 'sparkles', color: '#EAB308' },
+    'painter': { icon: 'brush', color: '#EC4899' },
+    'mason': { icon: 'construct', color: '#EF4444' },
+    'other': { icon: 'ellipsis-horizontal', color: '#6B7280' },
+  };
 
-const PAYMENT_METHODS = [
-  { id: 'cash', name: 'Cash', icon: 'cash-outline', logoColor: '#059669' },
-  { id: 'jazzcash', name: 'JazzCash', icon: 'wallet-outline', logoColor: '#EAB308' },
-  { id: 'easypaisa', name: 'EasyPaisa', icon: 'card-outline', logoColor: '#2563EB' },
-];
+  if (stylesMap[normalized]) return stylesMap[normalized];
+
+  for (const key of Object.keys(stylesMap)) {
+    if (normalized.includes(key) || key.includes(normalized)) {
+      return stylesMap[key];
+    }
+  }
+
+  const colors = ['#F97316', '#A855F7', '#3B82F6', '#10B981', '#84CC16', '#EAB308', '#EC4899', '#EF4444', '#6366F1'];
+  const icons = ['flash', 'build', 'snow', 'school', 'leaf', 'sparkles', 'brush', 'construct', 'briefcase'];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % colors.length;
+  return {
+    icon: icons[index],
+    color: colors[index]
+  };
+};
+
+const getPaymentPrefStyle = (name: string) => {
+  const normalized = name.trim().toLowerCase();
+  const styles: Record<string, { icon: string; logoColor: string }> = {
+    'cash': { icon: 'cash-outline', logoColor: '#059669' },
+    'jazzcash': { icon: 'wallet-outline', logoColor: '#EAB308' },
+    'easypaisa': { icon: 'card-outline', logoColor: '#2563EB' },
+  };
+
+  if (styles[normalized]) return styles[normalized];
+  
+  for (const key of Object.keys(styles)) {
+    if (normalized.includes(key) || key.includes(normalized)) {
+      return styles[key];
+    }
+  }
+
+  return { icon: 'card-outline', logoColor: '#6B7280' };
+};
+
+const CategorySkeleton = ({ grid, opacity }: { grid?: boolean; opacity: Animated.Value }) => {
+  return (
+    <Animated.View
+      style={[
+        grid ? styles.skeletonGridCard : styles.skeletonCard,
+        { opacity },
+      ]}
+    />
+  );
+};
+
+
 
 // Premium styled maps using CartoDB Positron
 const getLeafletHtml = (lat: number, lng: number) => `
@@ -218,6 +269,21 @@ export default function HomeView({ userName }: HomeViewProps) {
   // Bottom sheet categories toggle
   const [showAllCategories, setShowAllCategories] = useState(false);
 
+  // Shimmering Shared Animation
+  const shimmerAnim = useRef(new Animated.Value(0.3)).current;
+
+  // Dynamic Categories API State
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+
+  // Dynamic Payment Preferences API State
+  const [paymentPreferences, setPaymentPreferences] = useState<PaymentPreference[]>([]);
+  const [loadingPaymentPrefs, setLoadingPaymentPrefs] = useState(true);
+  const [selectedPaymentPrefId, setSelectedPaymentPrefId] = useState<number | null>(null);
+
+  // Production-Ready NetInfo State
+  const [isConnected, setIsConnected] = useState(true);
+
   // Bottom sheet direct location fields (when expanded)
   const [locStreet, setLocStreet] = useState('');
   const [locArea, setLocArea] = useState('');
@@ -226,15 +292,6 @@ export default function HomeView({ userName }: HomeViewProps) {
 
   // Form Attachments State
   const [attachments, setAttachments] = useState<Array<{ id: string; uri: string; uploading: boolean }>>([]);
-
-  // Helper to chunk categories array into columns of 2 items
-  const get2RowCategories = () => {
-    const columns = [];
-    for (let i = 0; i < CATEGORIES.length; i += 2) {
-      columns.push(CATEGORIES.slice(i, i + 2));
-    }
-    return columns;
-  };
 
   const getTranslateYValue = (state: 'collapsed' | 'default' | 'expanded') => {
     switch (state) {
@@ -309,10 +366,9 @@ export default function HomeView({ userName }: HomeViewProps) {
   }, [sheetState]);
 
   // Form Inputs State
-  const [activeCategory, setActiveCategory] = useState<string>('Electrician');
+  const [activeCategory, setActiveCategory] = useState<string>('');
   const [budget, setBudget] = useState('');
   const [description, setDescription] = useState('');
-  const [paymentPref, setPaymentPref] = useState('cash');
 
   // Keyboard height state to slide absolute bottom sheet up
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -333,6 +389,104 @@ export default function HomeView({ userName }: HomeViewProps) {
       hideSub.remove();
     };
   }, []);
+
+  // Shimmer loop animation
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, {
+          toValue: 0.7,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerAnim, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, []);
+
+  // Subscribe to NetInfo connection status
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      const connected = !!state.isConnected && (state.isInternetReachable !== false);
+      setIsConnected(connected);
+    });
+
+    // One-time check on mount
+    NetInfo.fetch().then((state) => {
+      const connected = !!state.isConnected && (state.isInternetReachable !== false);
+      setIsConnected(connected);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch categories from Backend API (completely removed DEFAULT_CATEGORIES fallback)
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCategories = async () => {
+      try {
+        setLoadingCategories(true);
+        const data = await getCategoriesFromBackend();
+        if (isMounted) {
+          setCategories(data);
+          if (data.length > 0 && !activeCategory) {
+            setActiveCategory(data[0].name);
+          }
+        }
+      } catch (err) {
+        console.error('[HomeView] Error loading categories from API:', err);
+        if (isMounted) {
+          setCategories([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingCategories(false);
+        }
+      }
+    };
+
+    fetchCategories();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeCategory]);
+
+  // Fetch payment preferences from Backend API
+  useEffect(() => {
+    let isMounted = true;
+    const fetchPaymentPrefs = async () => {
+      try {
+        setLoadingPaymentPrefs(true);
+        const data = await getPaymentPreferencesFromBackend();
+        if (isMounted) {
+          setPaymentPreferences(data);
+          if (data.length > 0 && selectedPaymentPrefId === null) {
+            setSelectedPaymentPrefId(data[0].id);
+          }
+        }
+      } catch (err) {
+        console.error('[HomeView] Error loading payment preferences from API:', err);
+        if (isMounted) {
+          setPaymentPreferences([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingPaymentPrefs(false);
+        }
+      }
+    };
+
+    fetchPaymentPrefs();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedPaymentPrefId]);
 
   // Navigation / Drawer / History Modals State
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -662,10 +816,18 @@ export default function HomeView({ userName }: HomeViewProps) {
   };
 
   const handleRequestTask = () => {
-    if (!activeCategory) {
-      Alert.alert('Selection Required', 'Please select a category first.');
+    const selectedCategoryObj = categories.find(c => c.name === activeCategory);
+    if (!selectedCategoryObj) {
+      Alert.alert('Selection Required', 'Please select a valid category.');
       return;
     }
+
+    const selectedPrefObj = paymentPreferences.find(p => p.id === selectedPaymentPrefId);
+    if (!selectedPrefObj) {
+      Alert.alert('Payment Selection Required', 'Please select a payment preference.');
+      return;
+    }
+
     if (!budget || isNaN(Number(budget)) || Number(budget) <= 0) {
       Alert.alert('Invalid Budget', 'Please enter a valid price/budget.');
       return;
@@ -676,7 +838,16 @@ export default function HomeView({ userName }: HomeViewProps) {
     }
 
     const attachmentUris = attachments.map(item => item.uri);
-    createTask(activeCategory, description, Number(budget), address, paymentPref, attachmentUris);
+    createTask(
+      selectedCategoryObj.id,
+      selectedCategoryObj.name,
+      selectedPrefObj.id,
+      selectedPrefObj.name,
+      description,
+      Number(budget),
+      address,
+      attachmentUris
+    );
     setViewActiveTaskScreen(true);
 
     // Clear inputs for next time
@@ -815,6 +986,14 @@ export default function HomeView({ userName }: HomeViewProps) {
         )}
       </View>
 
+      {/* NO INTERNET CONNECTION FLOATING INDICATOR */}
+      {!isConnected && (
+        <View style={[styles.noInternetBanner, { top: insets.top > 0 ? insets.top + 68 : 78 }]}>
+          <Ionicons name="wifi-outline" size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
+          <Text style={styles.noInternetText}>No Internet Connection</Text>
+        </View>
+      )}
+
       {/* 3. FLOATING HAMBURGER MENU BUTTON */}
       <Pressable
         style={[styles.menuBtn, { top: insets.top > 0 ? insets.top + 10 : 20 }]}
@@ -895,23 +1074,30 @@ export default function HomeView({ userName }: HomeViewProps) {
           {sheetState === 'expanded' ? (
             showAllCategories ? (
               <View style={styles.categoriesGrid}>
-                {CATEGORIES.map((cat) => {
-                  const isSelected = activeCategory === cat.name;
-                  return (
-                    <Pressable
-                      key={cat.name}
-                      style={[styles.categoryGridCard, isSelected && styles.categoryGridCardSelected]}
-                      onPress={() => setActiveCategory(cat.name)}
-                    >
-                      <View style={[styles.categoryIconCircle, { backgroundColor: cat.color + '15' }]}>
-                        <Ionicons name={cat.icon as any} size={22} color={isSelected ? '#10B981' : cat.color} />
-                      </View>
-                      <Text style={[styles.categoryGridLabel, isSelected && styles.categoryGridLabelSelected]} numberOfLines={1}>
-                        {cat.name}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                {loadingCategories ? (
+                  [1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                    <CategorySkeleton key={i} grid opacity={shimmerAnim} />
+                  ))
+                ) : (
+                  categories.map((cat) => {
+                    const style = getCategoryStyle(cat.name);
+                    const isSelected = activeCategory === cat.name;
+                    return (
+                      <Pressable
+                        key={cat.id}
+                        style={[styles.categoryGridCard, isSelected && styles.categoryGridCardSelected]}
+                        onPress={() => setActiveCategory(cat.name)}
+                      >
+                        <View style={[styles.categoryIconCircle, { backgroundColor: style.color + '15' }]}>
+                          <Ionicons name={style.icon as any} size={22} color={isSelected ? '#10B981' : style.color} />
+                        </View>
+                        <Text style={[styles.categoryGridLabel, isSelected && styles.categoryGridLabelSelected]} numberOfLines={1}>
+                          {cat.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })
+                )}
               </View>
             ) : (
               <View style={styles.categoriesGridScrollContainer}>
@@ -920,23 +1106,30 @@ export default function HomeView({ userName }: HomeViewProps) {
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={styles.categoriesGrid}
                 >
-                  {CATEGORIES.map((cat) => {
-                    const isSelected = activeCategory === cat.name;
-                    return (
-                      <Pressable
-                        key={cat.name}
-                        style={[styles.categoryGridCard, isSelected && styles.categoryGridCardSelected]}
-                        onPress={() => setActiveCategory(cat.name)}
-                      >
-                        <View style={[styles.categoryIconCircle, { backgroundColor: cat.color + '15' }]}>
-                          <Ionicons name={cat.icon as any} size={22} color={isSelected ? '#10B981' : cat.color} />
-                        </View>
-                        <Text style={[styles.categoryGridLabel, isSelected && styles.categoryGridLabelSelected]} numberOfLines={1}>
-                          {cat.name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+                  {loadingCategories ? (
+                    [1, 2, 3, 4].map((i) => (
+                      <CategorySkeleton key={i} grid opacity={shimmerAnim} />
+                    ))
+                  ) : (
+                    categories.map((cat) => {
+                      const style = getCategoryStyle(cat.name);
+                      const isSelected = activeCategory === cat.name;
+                      return (
+                        <Pressable
+                          key={cat.id}
+                          style={[styles.categoryGridCard, isSelected && styles.categoryGridCardSelected]}
+                          onPress={() => setActiveCategory(cat.name)}
+                        >
+                          <View style={[styles.categoryIconCircle, { backgroundColor: style.color + '15' }]}>
+                            <Ionicons name={style.icon as any} size={22} color={isSelected ? '#10B981' : style.color} />
+                          </View>
+                          <Text style={[styles.categoryGridLabel, isSelected && styles.categoryGridLabelSelected]} numberOfLines={1}>
+                            {cat.name}
+                          </Text>
+                        </Pressable>
+                      );
+                    })
+                  )}
                 </ScrollView>
               </View>
             )
@@ -946,23 +1139,30 @@ export default function HomeView({ userName }: HomeViewProps) {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.categoriesScroll}
             >
-              {CATEGORIES.map((cat) => {
-                const isSelected = activeCategory === cat.name;
-                return (
-                  <Pressable
-                    key={cat.name}
-                    style={[styles.categoryCard, isSelected && styles.categoryCardSelected]}
-                    onPress={() => setActiveCategory(cat.name)}
-                  >
-                    <View style={[styles.categoryIconCircle, { backgroundColor: cat.color + '15' }]}>
-                      <Ionicons name={cat.icon as any} size={22} color={isSelected ? '#10B981' : cat.color} />
-                    </View>
-                    <Text style={[styles.categoryLabel, isSelected && styles.categoryLabelSelected]}>
-                      {cat.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+              {loadingCategories ? (
+                [1, 2, 3, 4, 5].map((i) => (
+                  <CategorySkeleton key={i} opacity={shimmerAnim} />
+                ))
+              ) : (
+                categories.map((cat) => {
+                  const style = getCategoryStyle(cat.name);
+                  const isSelected = activeCategory === cat.name;
+                  return (
+                    <Pressable
+                      key={cat.id}
+                      style={[styles.categoryCard, isSelected && styles.categoryCardSelected]}
+                      onPress={() => setActiveCategory(cat.name)}
+                    >
+                      <View style={[styles.categoryIconCircle, { backgroundColor: style.color + '15' }]}>
+                        <Ionicons name={style.icon as any} size={22} color={isSelected ? '#10B981' : style.color} />
+                      </View>
+                      <Text style={[styles.categoryLabel, isSelected && styles.categoryLabelSelected]}>
+                        {cat.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })
+              )}
             </ScrollView>
           )}
 
@@ -1058,21 +1258,31 @@ export default function HomeView({ userName }: HomeViewProps) {
 
               {/* Payment Method Selector */}
               <View style={styles.paymentSelectorContainer}>
-                {PAYMENT_METHODS.map((pm) => {
-                  const isSelected = paymentPref === pm.id;
-                  return (
-                    <Pressable
-                      key={pm.id}
-                      style={[styles.paymentBtn, isSelected && styles.paymentBtnSelected]}
-                      onPress={() => setPaymentPref(pm.id)}
-                    >
-                      <Ionicons name={pm.icon as any} size={18} color={isSelected ? '#10B981' : '#6B7280'} />
-                      <Text style={[styles.paymentBtnLabel, isSelected && styles.paymentLabelSelected]}>
-                        {pm.name}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                {loadingPaymentPrefs ? (
+                  [1, 2, 3].map((i) => (
+                    <Animated.View
+                      key={i}
+                      style={[styles.paymentBtnSkeleton, { opacity: shimmerAnim }]}
+                    />
+                  ))
+                ) : (
+                  paymentPreferences.map((pm) => {
+                    const isSelected = selectedPaymentPrefId === pm.id;
+                    const style = getPaymentPrefStyle(pm.name);
+                    return (
+                      <Pressable
+                        key={pm.id}
+                        style={[styles.paymentBtn, isSelected && styles.paymentBtnSelected]}
+                        onPress={() => setSelectedPaymentPrefId(pm.id)}
+                      >
+                        <Ionicons name={style.icon as any} size={18} color={isSelected ? '#10B981' : style.logoColor} />
+                        <Text style={[styles.paymentBtnLabel, isSelected && styles.paymentLabelSelected]}>
+                          {pm.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })
+                )}
               </View>
             </View>
 
@@ -1779,5 +1989,51 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: '600',
     color: '#6B7280',
+  },
+  skeletonCard: {
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    marginRight: 6,
+  },
+  skeletonGridCard: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    width: '45.5%',
+    height: 46,
+    marginHorizontal: 6,
+    marginVertical: 4,
+  },
+  paymentBtnSkeleton: {
+    flex: 1,
+    height: 36,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 9,
+  },
+  noInternetBanner: {
+    position: 'absolute',
+    left: '10%',
+    right: '10%',
+    alignSelf: 'center',
+    backgroundColor: '#EF4444',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    elevation: 6,
+    zIndex: 10,
+  },
+  noInternetText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });

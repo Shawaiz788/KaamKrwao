@@ -26,8 +26,9 @@ export interface Task {
 }
 
 export interface TaskChainInput {
+  categoryId: number;
   categoryName: string;
-  paymentMethodId: string; // 'cash' | 'jazzcash' | 'easypaisa'
+  paymentPreferenceId: number;
   description: string;
   budget: number;
   userId: number;
@@ -146,52 +147,16 @@ export const createTask = async (task: Omit<Task, 'id'>): Promise<Task> => {
 // 4. Assemble inputs (subject, timestamps, location details)
 // 5. Send request to endpoint
 export const createTaskChain = async (input: TaskChainInput): Promise<Task> => {
-  const { categoryName, paymentMethodId, description, budget, userId, locationId, attachmentUris } = input;
-  console.log('[createTaskChain] Resolving task creation sequence...', input);
+  const { categoryId, categoryName, paymentPreferenceId, description, budget, userId, locationId, attachmentUris } = input;
+  console.log('[createTaskChain] Resolving task creation sequence with pre-resolved IDs...', input);
 
-  // 1. Get Category ID from backend
-  let categoryId = 1; // Default fallback
-  try {
-    const categories = await getCategoriesFromBackend();
-    const matchedCategory = categories.find(
-      (c) => c.name.toLowerCase() === categoryName.toLowerCase()
-    );
-    if (matchedCategory) {
-      categoryId = matchedCategory.id;
-      console.log(`[createTaskChain] Found category match: ${matchedCategory.name} -> ID: ${categoryId}`);
-    } else {
-      console.warn(`[createTaskChain] No exact category match for "${categoryName}". Using fallback ID 1.`);
-    }
-  } catch (err) {
-    console.error('[createTaskChain] Error fetching categories. Using fallback ID 1.', err);
-  }
-
-  // 2. Get Payment Preference ID from backend
-  let paymentPreferenceId = 1; // Default fallback
-  try {
-    const prefs = await getPaymentPreferencesFromBackend();
-    const matchedPref = prefs.find((p) => {
-      const nameLower = p.name.toLowerCase();
-      const methodLower = paymentMethodId.toLowerCase();
-      return nameLower.includes(methodLower) || methodLower.includes(nameLower);
-    });
-    if (matchedPref) {
-      paymentPreferenceId = matchedPref.id;
-      console.log(`[createTaskChain] Found payment preference match: ${matchedPref.name} -> ID: ${paymentPreferenceId}`);
-    } else {
-      console.warn(`[createTaskChain] No payment preference match for "${paymentMethodId}". Using fallback ID 1.`);
-    }
-  } catch (err) {
-    console.error('[createTaskChain] Error fetching payment preferences. Using fallback ID 1.', err);
-  }
-
-  // 3. Construct Subject line
+  // 1. Construct Subject line
   const subject = `${categoryName} Service Needed`;
 
-  // 4. Construct timestamp
+  // 2. Construct timestamp
   const preferredTime = new Date().toISOString();
 
-  // 5. Dispatch task first (so we obtain its database ID)
+  // 3. Dispatch task first (so we obtain its database ID)
   const taskPayload = {
     subject,
     body: description,

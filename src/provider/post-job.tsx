@@ -43,11 +43,13 @@ interface PostJobContextType {
   activeChatMessages: ChatMessage[];
   selectedCategory: string | null;
   createTask: (
-    category: string,
+    categoryId: number,
+    categoryName: string,
+    paymentPreferenceId: number,
+    paymentPreferenceName: string,
     description: string,
     budget: number,
     locationName: string,
-    paymentPref: string,
     attachmentUris?: string[] | null
   ) => void;
   cancelTask: () => void;
@@ -109,20 +111,22 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
   };
 
   const createTask = (
-    category: string,
+    categoryId: number,
+    categoryName: string,
+    paymentPreferenceId: number,
+    paymentPreferenceName: string,
     description: string,
     budget: number,
     locationName: string,
-    paymentPref: string,
     attachmentUris?: string[] | null
   ) => {
     const newTask: Task = {
       id: Date.now().toString(),
-      category,
+      category: categoryName,
       description,
       budget,
       locationName,
-      paymentPref,
+      paymentPref: paymentPreferenceName,
       status: 'searching',
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       attachmentUris,
@@ -141,21 +145,23 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
       (async () => {
         try {
           console.log('[PostJobProvider] Dispatching createTaskChain with:', {
-            category,
-            paymentPref,
+            categoryId,
+            categoryName,
+            paymentPreferenceId,
             budget,
             userId,
             locationId,
             attachmentUris,
           });
           const createdBackend = await createTaskChain({
-            categoryName: category,
-            paymentMethodId: paymentPref,
-            description: description,
-            budget: budget,
-            userId: userId,
-            locationId: locationId,
-            attachmentUris: attachmentUris,
+            categoryId,
+            categoryName,
+            paymentPreferenceId,
+            description,
+            budget,
+            userId,
+            locationId,
+            attachmentUris,
           });
           console.log('[PostJobProvider] Backend task created successfully. ID:', createdBackend.id);
 
