@@ -14,6 +14,7 @@ export interface AppUser {
     usertype_id: number;
     location_id: number;
     location?: UserLocation;
+    token?: string; // Optional JWT token
 }
 
 interface AuthContextType {
@@ -59,6 +60,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const login = async (appUser: AppUser) => {
         try {
+            // Save the JWT token separately if present in the user payload
+            if (appUser.token) {
+                await SecureStore.setItemAsync('user_token', appUser.token);
+                console.log('[SecureStore] Saved user JWT token');
+            }
             await SecureStore.setItemAsync('user_session', JSON.stringify(appUser, null, 4));
             console.log('[SecureStore] Saved user session:', appUser);
             setUser(appUser);
@@ -71,7 +77,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const logout = async () => {
         try {
             await SecureStore.deleteItemAsync('user_session');
-            console.log('[SecureStore] Deleted user session from device');
+            await SecureStore.deleteItemAsync('user_token');
+            console.log('[SecureStore] Deleted user session and JWT token from device');
             setUser(null);
         } catch (e) {
             console.error('Error clearing user session:', e);

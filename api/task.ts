@@ -1,5 +1,17 @@
+import * as SecureStore from 'expo-secure-store';
+
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 const API_URL = BASE_URL ? BASE_URL.replace(/\/$/, '') : '';
+
+// Helper to construct Authorization header using JWT token from SecureStore
+const getAuthHeaders = async (extraHeaders: Record<string, string> = {}): Promise<Record<string, string>> => {
+  const token = await SecureStore.getItemAsync('user_token');
+  const headers: Record<string, string> = { ...extraHeaders };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
 
 export interface Category {
   id: number;
@@ -39,15 +51,15 @@ export interface TaskChainInput {
 // Upload file to backend attachment endpoint using multipart/form-data, linking it to taskId
 export const uploadAttachment = async (uri: string, taskId: number): Promise<number> => {
   console.log(`[task API] Uploading attachment from uri: ${uri} for Task ID: ${taskId}`);
-  
+
   // 1. Create a FormData instance
   const formData = new FormData();
-  
+
   // 2. Extract name and mime type from uri
   const filename = uri.split('/').pop() || 'photo.jpg';
   const match = /\.(\w+)$/.exec(filename);
   const type = match ? `image/${match[1]}` : `image/jpeg`;
-  
+
   // 3. Append the file details using the format React Native expects for blobs/files
   formData.append('file', {
     uri,
@@ -59,15 +71,15 @@ export const uploadAttachment = async (uri: string, taskId: number): Promise<num
   formData.append('task_id', taskId.toString());
   formData.append('task', taskId.toString());
 
-  // 4. Dispatch multipart fetch request
+  // 4. Dispatch multipart fetch request with authorization header
+  const authHeaders = await getAuthHeaders({
+    'Accept': 'application/json',
+  });
+
   const response = await fetch(`${API_URL}/attachment/`, {
     method: 'POST',
     body: formData,
-    headers: {
-      // NOTE: Do NOT set Content-Type manually. Fetch will automatically set
-      // multipart/form-data along with the boundary string.
-      'Accept': 'application/json',
-    },
+    headers: authHeaders,
   });
 
   const responseText = await response.text();
@@ -86,12 +98,14 @@ export const uploadAttachment = async (uri: string, taskId: number): Promise<num
   }
 };
 
-// Fetch categories list
+// Fetch categories list (authenticated)
 export const getCategoriesFromBackend = async (): Promise<Category[]> => {
-  console.log('[task API] Fetching categories list from backend...');
-  const response = await fetch(`${API_URL}/category/`);
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${API_URL}/category/`, {
+    headers: authHeaders,
+  });
   const responseText = await response.text();
-  console.log('[task API] Get categories response status:', response.status);
+  //console.log('[task API] Get categories response status:', response.status);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch categories. Status: ${response.status}. Response: ${responseText}`);
@@ -100,12 +114,14 @@ export const getCategoriesFromBackend = async (): Promise<Category[]> => {
   return JSON.parse(responseText);
 };
 
-// Fetch payment preferences list
+// Fetch payment preferences list (authenticated)
 export const getPaymentPreferencesFromBackend = async (): Promise<PaymentPreference[]> => {
-  console.log('[task API] Fetching payment preferences list from backend...');
-  const response = await fetch(`${API_URL}/paymentpref/`);
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${API_URL}/paymentpref/`, {
+    headers: authHeaders,
+  });
   const responseText = await response.text();
-  console.log('[task API] Get paymentpref response status:', response.status);
+  //console.log('[task API] Get paymentpref response status:', response.status);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch payment preferences. Status: ${response.status}. Response: ${responseText}`);
@@ -114,20 +130,20 @@ export const getPaymentPreferencesFromBackend = async (): Promise<PaymentPrefere
   return JSON.parse(responseText);
 };
 
-// Send create task request
+// Send create task request (authenticated)
 export const createTask = async (task: Omit<Task, 'id'>): Promise<Task> => {
-  console.log('[task API] Creating task with payload:', JSON.stringify(task, null, 2));
+  const authHeaders = await getAuthHeaders({
+    'Content-Type': 'application/json',
+  });
   const response = await fetch(`${API_URL}/task/`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: authHeaders,
     body: JSON.stringify(task),
   });
 
   const responseText = await response.text();
-  console.log('[task API] Create task response status:', response.status);
-  console.log('[task API] Create task response body:', responseText);
+  //  console.log('[task API] Create task response status:', response.status);
+  //console.log('[task API] Create task response body:', responseText);
 
   if (!response.ok) {
     throw new Error(`Failed to create task. Status: ${response.status}. Response: ${responseText}`);

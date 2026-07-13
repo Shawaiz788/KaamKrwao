@@ -100,6 +100,16 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Sync activeTask changes to the persisted Zustand store.
+  // This MUST be done in a useEffect (not inside setActiveTask updaters)
+  // because calling zustand set() inside a React state updater triggers
+  // a downstream setState-during-render error.
+  useEffect(() => {
+    if (activeTask) {
+      addTaskToHistory(activeTask);
+    }
+  }, [activeTask]);
+
   const openPostJob = (cat?: string) => {
     if (cat) {
       setSelectedCategory(cat);
@@ -167,12 +177,9 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
 
           setActiveTask((prev) => {
             if (!prev || prev.id !== newTask.id) return prev;
-            const updated = {
-              ...prev,
-              backend_id: createdBackend.id,
-            };
-            addTaskToHistory(updated);
-            return updated;
+            // Note: addTaskToHistory is NOT called here — the useEffect above
+            // handles syncing to Zustand safely after each render.
+            return { ...prev, backend_id: createdBackend.id };
           });
         } catch (err: any) {
           console.error('[PostJobProvider] Failed to submit task to backend database:', err);
@@ -189,9 +196,7 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
     biddingTimer.current = setTimeout(() => {
       setActiveTask((prev) => {
         if (!prev || prev.id !== newTask.id) return prev;
-        const updated = { ...prev, status: 'bidding' as const };
-        addTaskToHistory(updated);
-        return updated;
+        return { ...prev, status: 'bidding' as const };
       });
 
       const mockBids: Bid[] = [
@@ -249,13 +254,11 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
 
     setActiveTask((prev) => {
       if (!prev) return null;
-      const updated = {
+      return {
         ...prev,
         status: 'accepted' as const,
         acceptedBid: chosenBid,
       };
-      addTaskToHistory(updated);
-      return updated;
     });
 
     // Start greeting after 2 seconds

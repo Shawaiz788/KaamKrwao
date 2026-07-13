@@ -65,22 +65,29 @@ export default function SignInScreen() {
             const userInfo = await loginUser(formattedPhone, data.password);
             console.log('[SignIn] Login successful. User info:', userInfo);
 
-            if (!userInfo || !userInfo.id) {
+            // Extract JWT access token from response payload
+            const token = (userInfo as any).access || (userInfo as any).access_token || (userInfo as any).token;
+
+            // Extract the user data (handle both nested {user: {...}} and flat {...} structures)
+            const userDetails = (userInfo as any).user || userInfo;
+
+            if (!userDetails || !userDetails.id) {
                 throw new Error('Login failed. Invalid user data received from server.');
             }
 
             // Map and log in locally
             const appUser = {
-                uid: userInfo.id.toString(),
-                displayName: `${userInfo.first_name} ${userInfo.last_name}`.trim(),
-                email: userInfo.email,
-                phoneNumber: userInfo.phone_number,
-                id: userInfo.id,
-                first_name: userInfo.first_name,
-                last_name: userInfo.last_name,
-                gender: userInfo.gender,
-                usertype_id: userInfo.usertype_id,
-                location_id: userInfo.location_id,
+                uid: userDetails.id.toString(),
+                displayName: `${userDetails.first_name} ${userDetails.last_name}`.trim(),
+                email: userDetails.email,
+                phoneNumber: userDetails.phone_number,
+                id: userDetails.id,
+                first_name: userDetails.first_name,
+                last_name: userDetails.last_name,
+                gender: userDetails.gender,
+                usertype_id: userDetails.usertype_id,
+                location_id: userDetails.location_id,
+                token: token, // Attach JWT token
             };
 
             await login(appUser);

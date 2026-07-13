@@ -137,7 +137,7 @@ const getPaymentPrefStyle = (name: string) => {
   };
 
   if (styles[normalized]) return styles[normalized];
-  
+
   for (const key of Object.keys(styles)) {
     if (normalized.includes(key) || key.includes(normalized)) {
       return styles[key];
@@ -455,7 +455,7 @@ export default function HomeView({ userName }: HomeViewProps) {
     return () => {
       isMounted = false;
     };
-  }, [activeCategory]);
+  }, []);
 
   // Fetch payment preferences from Backend API
   useEffect(() => {
@@ -486,7 +486,7 @@ export default function HomeView({ userName }: HomeViewProps) {
     return () => {
       isMounted = false;
     };
-  }, [selectedPaymentPrefId]);
+  }, []);
 
   // Navigation / Drawer / History Modals State
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -874,7 +874,7 @@ export default function HomeView({ userName }: HomeViewProps) {
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
       selectionLimit: 5 - attachments.length,
-      quality: 0.8,
+      quality: 0.4, // Compress image to prevent 504 Gateway Timeout over dev tunnels
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {

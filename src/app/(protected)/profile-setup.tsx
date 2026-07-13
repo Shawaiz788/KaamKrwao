@@ -450,6 +450,9 @@ export default function ProfileSetupScreen() {
 
       // Update local session
       if (createdUser && user) {
+        // Extract JWT access token from response payload
+        const token = (createdUser as any).access || (createdUser as any).access_token || (createdUser as any).token;
+
         const appUser = {
           uid: createdUser.id?.toString() || user.uid,
           displayName: `${createdUser.first_name} ${createdUser.last_name}`.trim(),
@@ -461,6 +464,7 @@ export default function ProfileSetupScreen() {
           gender: createdUser.gender,
           usertype_id: createdUser.usertype_id,
           location_id: createdUser.location_id,
+          token: token, // Attach JWT token
         };
         await login(appUser);
       }
