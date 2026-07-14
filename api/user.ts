@@ -104,7 +104,7 @@ export const loginUser = async (phone_number: string, password: string): Promise
 
 // Verify user account on backend using their user ID and optional JWT access token
 export const verifyUserOnBackend = async (userId: number, token?: string): Promise<any> => {
-    const url = `${API_URL}/app/${userId}/verify/`;
+    const url = `${API_URL}/app/user/${userId}/verify/`;
     console.log('[verifyUserOnBackend] Verifying account via URL:', url);
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -114,9 +114,9 @@ export const verifyUserOnBackend = async (userId: number, token?: string): Promi
     }
 
     const response = await fetch(url, {
-        method: 'POST',
+        method: 'PATCH',
         headers,
-        body: JSON.stringify({}),
+        body: JSON.stringify({ is_verified: true }),
     });
 
     const responseText = await response.text();

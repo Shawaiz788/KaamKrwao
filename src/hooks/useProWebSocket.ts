@@ -59,6 +59,15 @@ export function useProWebSocket({
     const [wsStatus, setWsStatus] = useState<WSStatus>('disconnected');
     const [hasNoJobs, setHasNoJobs] = useState(false);
 
+    const onBidAcceptedRef = useRef(onBidAccepted);
+    const onBidRejectedRef = useRef(onBidRejected);
+
+    // Sync refs with latest callbacks on every render
+    useEffect(() => {
+        onBidAcceptedRef.current = onBidAccepted;
+        onBidRejectedRef.current = onBidRejected;
+    }, [onBidAccepted, onBidRejected]);
+
     const wsRef = useRef<WebSocket | null>(null);
     const retryDelayRef = useRef(INITIAL_RETRY_DELAY_MS);
     const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -112,9 +121,9 @@ export function useProWebSocket({
                     setJobs([]);
                     setHasNoJobs(true);
                 } else if (msg.type === 'bid_accepted') {
-                    onBidAccepted?.(msg.task_id, msg.bid_amount);
+                    onBidAcceptedRef.current?.(msg.task_id, msg.bid_amount);
                 } else if (msg.type === 'bid_rejected') {
-                    onBidRejected?.(msg.task_id);
+                    onBidRejectedRef.current?.(msg.task_id);
                 }
                 // 'ping' → no-op
             } catch (e) {
@@ -145,7 +154,7 @@ export function useProWebSocket({
                 connect();
             }, delay);
         };
-    }, [userId, onBidAccepted, onBidRejected]);
+    }, [userId]);
 
     // Connect / disconnect when isOnline changes
     useEffect(() => {

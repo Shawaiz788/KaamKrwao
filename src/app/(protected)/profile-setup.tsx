@@ -519,7 +519,18 @@ export default function ProfileSetupScreen() {
       }
     } catch (err: any) {
       console.error('[profile-setup] Profile setup failed:', err);
-      setErrorMsg(err?.message || 'Failed to save profile. Please try again.');
+      let friendlyMsg = 'Failed to save profile. Please try again.';
+      const rawMsg = err?.message || '';
+
+      if (rawMsg.includes('Failed to create user') || rawMsg.includes('Status:') || rawMsg.includes('Response:')) {
+        friendlyMsg = 'Registration failed. The email or phone number might already be in use.';
+      } else if (rawMsg.includes('Failed to resolve or create your location profile')) {
+        friendlyMsg = 'Location verification failed. Please check your address details.';
+      } else if (rawMsg) {
+        friendlyMsg = rawMsg;
+      }
+
+      setErrorMsg(friendlyMsg);
     } finally {
       setIsLoading(false);
     }

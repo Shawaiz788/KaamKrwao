@@ -8,6 +8,7 @@ import {
     Dimensions,
     Switch,
     StatusBar,
+    Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -115,10 +116,12 @@ export default function ProDrawerPanel({
                 {/* Header */}
                 <View style={styles.drawerHeader}>
                     <View style={styles.brandRow}>
-                        <View style={styles.brandLogoBox}>
-                            <Ionicons name="checkmark-done" size={18} color={Colors.white} />
-                        </View>
-                        <Text style={styles.brandName}>HAAN Pro</Text>
+                        <Image
+                            source={require('../../../../assets/icon.png')}
+                            style={styles.brandIcon}
+                            resizeMode="contain"
+                        />
+                        <Text style={styles.brandName}>KaamKarwao</Text>
                     </View>
                     <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={12}>
                         <Ionicons name="close" size={22} color="rgba(255,255,255,0.7)" />
@@ -235,6 +238,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 10,
+    },
+    brandIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 8,
     },
     brandLogoBox: {
         width: 32,

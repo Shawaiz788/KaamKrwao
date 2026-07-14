@@ -24,6 +24,7 @@ import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import NetInfo from '@react-native-community/netinfo';
 import { getCategoriesFromBackend, Category, getPaymentPreferencesFromBackend, PaymentPreference } from '../../../api/task';
+import { getLocationById } from '../../../api/location';
 import { useAuth } from '../../provider/auth';
 import { usePostJob, Task } from '../../provider/post-job';
 import ActiveTaskScreen from './ActiveTaskScreen';
@@ -508,6 +509,33 @@ export default function HomeView({ userName }: HomeViewProps) {
   useEffect(() => {
     (async () => {
       try {
+        // 1. Try to fetch user's saved location coordinates from backend first
+        if (user && user.location_id) {
+          try {
+            console.log(`[HomeView] Fetching user saved location profile for ID: ${user.location_id}`);
+            const savedLoc = await getLocationById(user.location_id);
+            if (savedLoc && savedLoc.latitude !== undefined && savedLoc.longitude !== undefined) {
+              const savedCoords = {
+                latitude: Number(savedLoc.latitude),
+                longitude: Number(savedLoc.longitude),
+              };
+              console.log('[HomeView] Successfully loaded saved location coordinates:', savedCoords);
+              setMapCoords(savedCoords);
+              setInitialCoords(savedCoords);
+              if (savedLoc.formatted_address) {
+                setAddress(savedLoc.formatted_address);
+              } else {
+                reverseGeocode(savedCoords.latitude, savedCoords.longitude);
+              }
+              setLoadingLocation(false);
+              return; // Initialized successfully with user's saved location
+            }
+          } catch (locErr) {
+            console.warn('[HomeView] Failed to fetch user saved location profile. Falling back to GPS:', locErr);
+          }
+        }
+
+        // 2. Fallback to GPS lookup if saved location is unavailable
         let { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
           const defaultCoords = { latitude: 31.5204, longitude: 74.3587 };
@@ -857,8 +885,8 @@ export default function HomeView({ userName }: HomeViewProps) {
   };
 
   const handleAddAttachment = async () => {
-    if (attachments.length >= 5) {
-      Alert.alert('Limit Reached', 'You can attach up to 5 images only.');
+    if (attachments.length >= 3) {
+      Alert.alert('Limit Reached', 'You can attach up to 3 images only.');
       return;
     }
 
@@ -873,7 +901,7 @@ export default function HomeView({ userName }: HomeViewProps) {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
-      selectionLimit: 5 - attachments.length,
+      selectionLimit: 3 - attachments.length,
       quality: 0.4, // Compress image to prevent 504 Gateway Timeout over dev tunnels
     });
 
@@ -1056,58 +1084,14 @@ export default function HomeView({ userName }: HomeViewProps) {
           {/* Scrolling Categories Selection */}
           <View style={styles.sheetHeaderWithAction}>
             <Text style={styles.sheetTitle}>What service do you need?</Text>
-            {sheetState === 'expanded' && (
-              <Pressable onPress={() => setShowAllCategories(!showAllCategories)} style={styles.seeAllBtn}>
-                <Text style={styles.seeAllBtnText}>
-                  {showAllCategories ? 'Show Less' : 'See All'}
-                </Text>
-                <Ionicons
-                  name={showAllCategories ? 'chevron-up' : 'chevron-down'}
-                  size={12}
-                  color="#10B981"
-                  style={{ marginLeft: 4 }}
-                />
-              </Pressable>
-            )}
           </View>
 
           {sheetState === 'expanded' ? (
-            showAllCategories ? (
-              <View style={styles.categoriesGrid}>
-                {loadingCategories ? (
-                  [1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                    <CategorySkeleton key={i} grid opacity={shimmerAnim} />
-                  ))
-                ) : (
-                  categories.map((cat) => {
-                    const style = getCategoryStyle(cat.name);
-                    const isSelected = activeCategory === cat.name;
-                    return (
-                      <Pressable
-                        key={cat.id}
-                        style={[styles.categoryGridCard, isSelected && styles.categoryGridCardSelected]}
-                        onPress={() => setActiveCategory(cat.name)}
-                      >
-                        <View style={[styles.categoryIconCircle, { backgroundColor: style.color + '15' }]}>
-                          <Ionicons name={style.icon as any} size={22} color={isSelected ? '#10B981' : style.color} />
-                        </View>
-                        <Text style={[styles.categoryGridLabel, isSelected && styles.categoryGridLabelSelected]} numberOfLines={1}>
-                          {cat.name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })
-                )}
-              </View>
-            ) : (
-              <View style={styles.categoriesGridScrollContainer}>
-                <ScrollView
-                  nestedScrollEnabled
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={styles.categoriesGrid}
-                >
+            <>
+              {showAllCategories ? (
+                <View style={styles.categoriesGrid}>
                   {loadingCategories ? (
-                    [1, 2, 3, 4].map((i) => (
+                    [1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                       <CategorySkeleton key={i} grid opacity={shimmerAnim} />
                     ))
                   ) : (
@@ -1130,9 +1114,58 @@ export default function HomeView({ userName }: HomeViewProps) {
                       );
                     })
                   )}
-                </ScrollView>
-              </View>
-            )
+                </View>
+              ) : (
+                <View style={styles.categoriesGridScrollContainer}>
+                  <ScrollView
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.categoriesGrid}
+                  >
+                    {loadingCategories ? (
+                      [1, 2, 3, 4].map((i) => (
+                        <CategorySkeleton key={i} grid opacity={shimmerAnim} />
+                      ))
+                    ) : (
+                      categories.map((cat) => {
+                        const style = getCategoryStyle(cat.name);
+                        const isSelected = activeCategory === cat.name;
+                        return (
+                          <Pressable
+                            key={cat.id}
+                            style={[styles.categoryGridCard, isSelected && styles.categoryGridCardSelected]}
+                            onPress={() => setActiveCategory(cat.name)}
+                          >
+                            <View style={[styles.categoryIconCircle, { backgroundColor: style.color + '15' }]}>
+                              <Ionicons name={style.icon as any} size={22} color={isSelected ? '#10B981' : style.color} />
+                            </View>
+                            <Text style={[styles.categoryGridLabel, isSelected && styles.categoryGridLabelSelected]} numberOfLines={1}>
+                              {cat.name}
+                            </Text>
+                          </Pressable>
+                        );
+                      })
+                    )}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Render the See All button below the grid when expanded */}
+              <Pressable
+                onPress={() => setShowAllCategories(!showAllCategories)}
+                style={[styles.seeAllBtn, { alignSelf: 'flex-end', marginTop: 10, marginBottom: 8 }]}
+              >
+                <Text style={styles.seeAllBtnText}>
+                  {showAllCategories ? 'Show Less' : 'See All'}
+                </Text>
+                <Ionicons
+                  name={showAllCategories ? 'chevron-up' : 'chevron-down'}
+                  size={12}
+                  color="#10B981"
+                  style={{ marginLeft: 4 }}
+                />
+              </Pressable>
+            </>
           ) : (
             <ScrollView
               horizontal
@@ -1302,7 +1335,7 @@ export default function HomeView({ userName }: HomeViewProps) {
 
             {/* Attachments Section */}
             <View style={styles.attachmentsContainer}>
-              <Text style={styles.attachmentsTitle}>Attachments ({attachments.length}/5)</Text>
+              <Text style={styles.attachmentsTitle}>Attachments ({attachments.length}/3)</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.attachmentsRow}>
                 {attachments.map((item) => (
                   <View key={item.id} style={styles.attachmentCard}>
@@ -1324,7 +1357,7 @@ export default function HomeView({ userName }: HomeViewProps) {
                   </View>
                 ))}
 
-                {attachments.length < 5 && (
+                {attachments.length < 3 && (
                   <Pressable style={styles.addAttachmentBtn} onPress={handleAddAttachment}>
                     <Ionicons name="camera-outline" size={20} color="#6B7280" />
                     <Text style={styles.addAttachmentText}>Add Photo</Text>
