@@ -39,6 +39,86 @@ Below are the core libraries and tools driving this project:
 
 ---
 
+## 👥 Dual-User Ecosystem: Customers & Professionals
+
+KaamKarwao is built as a dual-role service platform with custom user experiences tailored specifically to the needs of both **Customers (Clients)** seeking on-demand help and **Professionals (Service Providers)** offering their specialized expertise. 
+
+The application utilizes the `usertype_id` from the backend to dynamically handle navigation, styling theme, maps, and state management.
+
+---
+
+### 👤 1. Customers (Clients)
+
+The customer app experience centers around simplicity, precision, and speed. It enables clients to quickly find verified professionals near them.
+
+#### 🌟 Key Features & Interface
+*   **Location-Search & Pin-Adjustment:** Integrates OpenStreetMap (OSM) Nominatim API for real-time address search suggestions. Uses an interactive Leaflet WebView with a custom visual pin adjuster that maps coordinates with visual offset calibration (visually centering the marker at 35% screen height above the bottom action sheet).
+*   **Task Request Dispatch:** A multi-step hiring radar that broadcasts service requirements to nearby service providers in real-time.
+*   **Bid Comparison Dashboard:** Displays incoming bids from professionals. Shows service estimates, professional profiles, background verification status, average ratings (star icons), and review counters.
+*   **Active Booking & Tracking:** Once a bid is accepted, visual tracking of the professional's live progress is displayed on the map, alongside direct phone calling controls and real-time chat.
+*   **Navigation & Custom Drawer:** A customized slide-out panel ([DrawerPanel.tsx](file:///c:/Users/Fahad/Documents/KaamKarwao/src/components/home/DrawerPanel.tsx)) that shows customer profile details, average rating stars, verification checkmarks, and task history toggles.
+
+#### 🗺️ Typical Customer Journey
+1.  **Welcome & Registration:** Sign-in or register, specifying a Client role (`usertype_id = 2`).
+2.  **Locating the Job:** Locate the job address using search or manually adjust the location pin by panning the map.
+3.  **Posting the Task:** Select a service category (e.g., Electrician, AC Repair, Plumbing) and tap **Find Professional** to launch the task broadcast.
+4.  **Reviewing Live Offers:** The customer's screen displays a radar scanning screen. As nearby professionals bid on the task, custom cards with their bids, ratings, and profile details appear.
+5.  **Hiring & Coordination:** Customer accepts a bid. The app displays the active professional's details and launches the real-time chat interface to share instructions or schedule timing.
+
+---
+
+### ⚡ 2. Professionals (Service Providers)
+
+The professional app experience acts as a mobile command center, optimized for background tasks monitoring, job queue inspection, bidding, and financial tracking.
+
+#### 🌟 Key Features & Interface
+*   **Pro Dashboard Command Center:** Displays weekly earnings report (via a custom daily bar chart), active stats (weekly earnings, total earnings, completed jobs count, and average rating stars), and quick access to live job listings.
+*   **Online/Offline Toggle:** A status pill indicator that lets professionals toggle their online status. Going online establishes a persistent WebSocket connection to receive incoming job requests in real-time.
+*   **WebSocket Live-Job Feed:** Real-time updates displaying newly requested local jobs in proximity, indicating the customer's name, rating, job description, target budget, and estimated distance.
+*   **Bidding Bottom Sheet:** A highly responsive interaction interface that allows the professional to view the detailed job location and submit custom service estimates (bids).
+*   **Earnings & History Reports:** In-depth breakdown of completed tasks, customer reviews, and historical financial performance.
+
+#### 🛠️ Typical Professional Journey
+1.  **Profile Setup & Verification:** Register as a Professional (`usertype_id = 1`) and complete the profile details (name, skill set, experience).
+2.  **Going Online:** Toggle online status from the dashboard to signal availability to the backend dispatcher.
+3.  **Inspecting Live Opportunities:** Explore the live jobs tab. When a customer nearby creates a job, a live card appears showing details, location, and distance.
+4.  **Bidding on Jobs:** Tap a job card to open the job details. Enter a competitive estimate/price bid and submit it.
+5.  **Job Execution:** If the customer accepts the bid, a real-time notification updates the state. The app automatically navigates the professional to the active task view, displaying customer directions and initiating a live chat session to coordinate.
+
+---
+
+### 🔄 Real-Time Bid & Dispatch Interaction Model
+
+The collaboration between Customers and Professionals is driven by a real-time state machine connected through WebSockets:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Customer as 👤 Customer
+    participant Server as 🖥️ Backend / WS Server
+    actor Professional as ⚡ Professional
+
+    Note over Professional: Goes Online (Establishes WS Connection)
+    Customer->>Server: Creates Task (Category, Location, Budget)
+    Server-->>Customer: Enters "Searching" radar loop
+    Server->>Professional: WebSocket Broadcast: "job_list" containing new job
+    Note over Professional: Reviews distance, customer rating & details
+    Professional->>Server: Submits bid estimate (WebSocket/API)
+    Server->>Customer: WebSocket Push: New bid estimate added to list
+    Note over Customer: Compares bids, ratings & reviews
+    Customer->>Server: Accepts Professional's Bid
+    Server->>Professional: WebSocket Push: "bid_accepted" (Task & Bid details)
+    Server-->>Customer: Transition to "Active Job" view & starts Chat
+    Server-->>Professional: Navigates to "Active Task" view & starts Chat
+    rect rgb(240, 248, 255)
+        Note over Customer, Professional: Peer-to-Peer Chat & Job Execution
+        Customer->>Professional: Chat Message
+        Professional->>Customer: Chat Message
+    end
+```
+
+---
+
 ## 📐 Architecture & Routing Flow
 
 ```mermaid

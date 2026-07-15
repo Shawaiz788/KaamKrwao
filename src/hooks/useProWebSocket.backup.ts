@@ -93,7 +93,7 @@ export function useProWebSocket({
     }, []);
 
     const connect = useCallback(() => {
-        return
+
         if (!isMountedRef.current || !userId || !shouldConnectRef.current) return;
         if (wsRef.current) return; // already connected/connecting
 
