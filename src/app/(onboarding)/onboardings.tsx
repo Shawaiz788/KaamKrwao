@@ -360,11 +360,15 @@ export default function OnboardingScreen1() {
           <Pressable style={styles.bottomSkipBtn} onPress={handleSkip} hitSlop={12}>
             <Text style={styles.bottomSkipText}>Skip</Text>
           </Pressable>
-        ) : (
-          <View style={styles.bottomSkipPlaceholder} />
-        )}
+        ) : null}
 
-        <Pressable style={styles.nextBtnWrapper} onPress={handleNext}>
+        <Pressable 
+          style={[
+            styles.nextBtnWrapper,
+            page === 3 && { marginLeft: 0 }
+          ]} 
+          onPress={handleNext}
+        >
           <LinearGradient
             colors={['#10B981', '#059669']}
             start={{ x: 0, y: 0 }}
