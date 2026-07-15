@@ -32,7 +32,7 @@ const MAX_CHART_VALUE = Math.max(...CHART_DATA.map((d) => d.value));
 
 const RECENT_JOBS = [
     { id: '1', icon: 'flash', color: '#F97316', title: 'DB wiring — 3-bed apart...', address: 'DHA Phase 5 · Dec 20', amount: 'Rs. 4,500' },
-    { id: '2', icon: 'snow',  color: '#3B82F6', title: 'Split AC install + gas refill', address: 'Gulberg III · Dec 18',  amount: 'Rs. 7,200' },
+    { id: '2', icon: 'snow', color: '#3B82F6', title: 'Split AC install + gas refill', address: 'Gulberg III · Dec 18', amount: 'Rs. 7,200' },
     { id: '3', icon: 'battery-charging', color: '#8B5CF6', title: 'UPS bypass wiring', address: 'Model Town · Dec 16', amount: 'Rs. 3,800' },
     { id: '4', icon: 'flash', color: '#F97316', title: '4 ceiling fans + socket re...', address: 'Johar Town · Dec 14', amount: 'Rs. 2,900' },
 ];
@@ -192,7 +192,7 @@ export default function ProDashboardView() {
                     </View>
                     <View style={styles.ctaText}>
                         <Text style={styles.ctaTitle}>Go online to receive jobs</Text>
-                        <Text style={styles.ctaSub}>Uber-style — jobs come to you</Text>
+                        <Text style={styles.ctaSub}>Jobs come to you</Text>
                     </View>
                     <Ionicons name="arrow-forward" size={22} color={Colors.white} />
                 </Pressable>

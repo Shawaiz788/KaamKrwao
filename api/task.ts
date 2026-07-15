@@ -47,7 +47,7 @@ const getAuthHeaders = async (extraHeaders: Record<string, string> = {}): Promis
       console.log('[task API] JWT access token is older than 30 minutes. Triggering refresh...');
       try {
         const newAccessToken = await refreshAccessToken(refreshToken);
-        
+
         // Save new access token and update timestamp
         await SecureStore.setItemAsync('user_token', newAccessToken);
         await SecureStore.setItemAsync('user_token_saved_at', now.toString());
@@ -79,7 +79,7 @@ const getAuthHeaders = async (extraHeaders: Record<string, string> = {}): Promis
 const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
   // 1. Inject auth headers
   const authHeaders = await getAuthHeaders(options.headers as Record<string, string>);
-  
+
   // 2. Make original request
   let response = await fetch(url, {
     ...options,
@@ -90,7 +90,7 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Re
   if (response.status === 401) {
     console.log('[task API] Access token is invalid or expired (401). Attempting background refresh...');
     const refreshToken = await SecureStore.getItemAsync('user_refresh_token');
-    
+
     if (refreshToken) {
       try {
         const newAccessToken = await refreshAccessToken(refreshToken);
@@ -290,6 +290,7 @@ export const createTaskChain = async (input: TaskChainInput): Promise<Task> => {
     payment_preference_id: paymentPreferenceId,
     accurately_estimated: 0, // Default accurately_estimated
     category_id: categoryId,
+
   };
 
   const createdTask = await createTask(taskPayload);
@@ -300,9 +301,9 @@ export const createTaskChain = async (input: TaskChainInput): Promise<Task> => {
     const uploadPromises = attachmentUris.map(async (uri) => {
       try {
         const uploadResultId = await uploadAttachment(uri, createdTask.id!);
-        console.log(`[createTaskChain] Attachment uploaded successfully with ID: ${uploadResultId} for Task ID: ${createdTask.id}`);
+        //   console.log(`[createTaskChain] Attachment uploaded successfully with ID: ${uploadResultId} for Task ID: ${createdTask.id}`);
       } catch (err) {
-        console.error(`[createTaskChain] Attachment upload failed for uri: ${uri}.`, err);
+        // console.error(`[createTaskChain] Attachment upload failed for uri: ${uri}.`, err);
       }
     });
 

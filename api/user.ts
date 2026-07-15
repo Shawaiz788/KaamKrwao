@@ -133,3 +133,44 @@ export const verifyUserOnBackend = async (userId: number, token?: string): Promi
         return { message: responseText };
     }
 };
+
+// Check if a phone number is already registered in the system (returns true if exists, false otherwise)
+export const checkPhoneExists = async (phoneNumber: string): Promise<boolean> => {
+    const url = `${API_URL}/app/register/user/`;
+    console.log('[checkPhoneExists] Checking phone existence via URL:', url);
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ phone_number: phoneNumber }),
+        });
+
+        const responseText = await response.text();
+        console.log('[checkPhoneExists] Response Status:', response.status);
+        console.log('[checkPhoneExists] Response Body:', responseText);
+
+        if (response.status === 400) {
+            try {
+                const data = JSON.parse(responseText);
+                if (data && data.phone_number) {
+                    const errors = Array.isArray(data.phone_number) ? data.phone_number : [data.phone_number];
+                    const hasExistsError = errors.some((err: string) =>
+                        err.toLowerCase().includes('exist') ||
+                        err.toLowerCase().includes('unique')
+                    );
+                    if (hasExistsError) {
+                        return true; // Phone number already registered!
+                    }
+                }
+            } catch (e) {
+                console.error('[checkPhoneExists] Failed to parse JSON error response:', e);
+            }
+        }
+        return false;
+    } catch (error) {
+        console.error('[checkPhoneExists] Connection error during check:', error);
+        return false; // Fallback to false so as not to block signup if network is down
+    }
+};

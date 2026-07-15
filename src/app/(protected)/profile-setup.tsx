@@ -522,7 +522,9 @@ export default function ProfileSetupScreen() {
       let friendlyMsg = 'Failed to save profile. Please try again.';
       const rawMsg = err?.message || '';
 
-      if (rawMsg.includes('Failed to create user') || rawMsg.includes('Status:') || rawMsg.includes('Response:')) {
+      if (rawMsg.includes('Status: 5') || rawMsg.includes('500') || rawMsg.includes('504') || rawMsg.includes('502')) {
+        friendlyMsg = 'The server is temporarily busy. Please try again in a few moments.';
+      } else if (rawMsg.includes('Failed to create user') || rawMsg.includes('Status:') || rawMsg.includes('Response:')) {
         friendlyMsg = 'Registration failed. The email or phone number might already be in use.';
       } else if (rawMsg.includes('Failed to resolve or create your location profile')) {
         friendlyMsg = 'Location verification failed. Please check your address details.';

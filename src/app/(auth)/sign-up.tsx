@@ -16,9 +16,10 @@ import { Link, useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { getAuth, signInWithPhoneNumber } from '@react-native-firebase/auth';
+import { getAuth, signInWithPhoneNumber, signOut } from '@react-native-firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { checkPhoneExists } from '../../../api/user';
 
 const signUpSchema = z.object({
     phone: z
@@ -67,11 +68,20 @@ export default function SignUpScreen() {
         setIsLoading(true);
         try {
             const formattedPhone = `+92${data.phone}`;
+
+            // Check if phone number is already registered in backend database
+            const phoneExists = await checkPhoneExists(formattedPhone);
+            if (phoneExists) {
+                setError('phone', { message: 'Phone number already registered. Please sign in.' });
+                setIsLoading(false);
+                return;
+            }
+
             const auth = getAuth();
             
             // Clear any stale user session to prevent firebase auth from getting stuck
             if (auth.currentUser) {
-                await auth.signOut();
+                await signOut(auth);
             }
             
             const confirmation = await signInWithPhoneNumber(auth, formattedPhone);
@@ -88,10 +98,13 @@ export default function SignUpScreen() {
             });
         } catch (err: any) {
             console.log('Sign up error: ', err);
+            const rawMsg = err?.message || '';
             if (err.code === 'auth/invalid-phone-number') {
                 setError('phone', { message: 'Invalid phone number format' });
+            } else if (rawMsg.includes('Status: 5') || rawMsg.includes('500') || rawMsg.includes('504') || rawMsg.includes('502')) {
+                setError('root', { message: 'Server is temporarily busy. Please try again in a few moments.' });
             } else {
-                setError('root', { message: err.message || 'An error occurred sending OTP' });
+                setError('root', { message: rawMsg || 'An error occurred sending OTP' });
             }
         } finally {
             setIsLoading(false);

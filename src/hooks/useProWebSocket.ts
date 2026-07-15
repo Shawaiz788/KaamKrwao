@@ -46,9 +46,18 @@ interface UseProWebSocketResult {
     refresh: () => void;
 }
 
-const MAX_RETRY_DELAY_MS = 30_000;
-const INITIAL_RETRY_DELAY_MS = 1_000;
-
+/**
+ * 🎓 WEBSOCKET LEARNING TEMPLATE
+ * 
+ * This hook is responsible for managing a WebSocket connection to receive live jobs
+ * in real-time and handle bidding outcomes (acceptance/rejection).
+ * 
+ * Follow the comments step-by-step to write your own connection management,
+ * AppState tracking, reconnect policies (exponential backoff), and cleanup!
+ * 
+ * NOTE: The original fully functional code has been backed up in:
+ * src/hooks/useProWebSocket.backup.ts
+ */
 export function useProWebSocket({
     userId,
     isOnline,
@@ -59,111 +68,69 @@ export function useProWebSocket({
     const [wsStatus, setWsStatus] = useState<WSStatus>('disconnected');
     const [hasNoJobs, setHasNoJobs] = useState(false);
 
+    // STEP 1: Callback References
+    // Keep reference of callbacks to avoid re-triggering connection effects
+    // on every callback change. Use refs:
     const onBidAcceptedRef = useRef(onBidAccepted);
     const onBidRejectedRef = useRef(onBidRejected);
 
-    // Sync refs with latest callbacks on every render
     useEffect(() => {
         onBidAcceptedRef.current = onBidAccepted;
         onBidRejectedRef.current = onBidRejected;
     }, [onBidAccepted, onBidRejected]);
 
+    // STEP 2: WebSocket & State Control Refs
     const wsRef = useRef<WebSocket | null>(null);
-    const retryDelayRef = useRef(INITIAL_RETRY_DELAY_MS);
-    const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
     const isMountedRef = useRef(true);
     const shouldConnectRef = useRef(false);
-    const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
-    const clearRetryTimer = () => {
-        if (retryTimerRef.current) {
-            clearTimeout(retryTimerRef.current);
-            retryTimerRef.current = null;
-        }
-    };
+    // TODO: Add your references for reconnect timers and app state tracking here
+    // e.g. retryDelayRef, retryTimerRef, appStateRef
 
+    // STEP 3: Socket Disconnection Logic
     const closeSocket = useCallback(() => {
-        if (wsRef.current) {
-            wsRef.current.onclose = null; // prevent reconnect loop
-            wsRef.current.onerror = null;
-            wsRef.current.onmessage = null;
-            wsRef.current.close();
-            wsRef.current = null;
-        }
+        // TODO: Clean up event listeners on wsRef.current, close the socket, and set it to null
     }, []);
 
+    // STEP 4: WebSocket Connection & Event Listeners
     const connect = useCallback(() => {
+        // Note: For local offline development, you can add 'return;' at the top to skip ws connection
+        // return;
+
         if (!isMountedRef.current || !userId || !shouldConnectRef.current) return;
-        if (wsRef.current) return; // already connected/connecting
+        if (wsRef.current) return;
 
         const url = `${WS_BASE}/ws/jobs/${userId}/`;
-        console.log('[useProWebSocket] Connecting to:', url);
         setWsStatus('connecting');
 
-        const ws = new WebSocket(url);
-        wsRef.current = ws;
+        // TODO: 1. Initialize WebSocket instance
+        // const ws = new WebSocket(url);
+        // wsRef.current = ws;
 
-        ws.onopen = () => {
-            if (!isMountedRef.current) return;
-            console.log('[useProWebSocket] Connected');
-            setWsStatus('connected');
-            retryDelayRef.current = INITIAL_RETRY_DELAY_MS; // reset backoff
-        };
+        // TODO: 2. Implement ws.onopen
+        // - Set status to 'connected' and reset backoff delay
 
-        ws.onmessage = (event) => {
-            if (!isMountedRef.current) return;
-            try {
-                const msg: WSMessage = JSON.parse(event.data);
-                if (msg.type === 'job_list') {
-                    setJobs(msg.jobs);
-                    setHasNoJobs(msg.jobs.length === 0);
-                } else if (msg.type === 'no_jobs') {
-                    setJobs([]);
-                    setHasNoJobs(true);
-                } else if (msg.type === 'bid_accepted') {
-                    onBidAcceptedRef.current?.(msg.task_id, msg.bid_amount);
-                } else if (msg.type === 'bid_rejected') {
-                    onBidRejectedRef.current?.(msg.task_id);
-                }
-                // 'ping' → no-op
-            } catch (e) {
-                console.warn('[useProWebSocket] Failed to parse message:', e);
-            }
-        };
+        // TODO: 3. Implement ws.onmessage
+        // - Parse JSON data (e.g. const msg = JSON.parse(event.data))
+        // - Handle message types: 'job_list', 'no_jobs', 'bid_accepted', 'bid_rejected'
+        // - Update state variables (jobs, hasNoJobs) or invoke callbacks via refs
 
-        ws.onerror = (error) => {
-            console.error('[useProWebSocket] WebSocket error:', error);
-        };
+        // TODO: 4. Implement ws.onerror
+        // - Log errors for debugging
 
-        ws.onclose = (event) => {
-            if (!isMountedRef.current) return;
-            wsRef.current = null;
-            console.log('[useProWebSocket] Connection closed. Code:', event.code);
+        // TODO: 5. Implement ws.onclose
+        // - Set status to reconnecting or disconnected
+        // - Schedule reconnection using exponential backoff (e.g. delay * 2) if shouldConnectRef.current is true
 
-            if (!shouldConnectRef.current) {
-                setWsStatus('disconnected');
-                return;
-            }
-
-            // Exponential backoff reconnect
-            setWsStatus('reconnecting');
-            const delay = retryDelayRef.current;
-            retryDelayRef.current = Math.min(delay * 2, MAX_RETRY_DELAY_MS);
-            console.log(`[useProWebSocket] Reconnecting in ${delay}ms...`);
-            retryTimerRef.current = setTimeout(() => {
-                connect();
-            }, delay);
-        };
     }, [userId]);
 
-    // Connect / disconnect when isOnline changes
+    // STEP 5: Connection Trigger on State Change
     useEffect(() => {
         shouldConnectRef.current = isOnline && !!userId;
 
         if (isOnline && userId) {
             connect();
         } else {
-            clearRetryTimer();
             closeSocket();
             setWsStatus('disconnected');
             setJobs([]);
@@ -171,45 +138,27 @@ export function useProWebSocket({
         }
     }, [isOnline, userId, connect, closeSocket]);
 
-    // Handle app foreground / background transitions
-    useEffect(() => {
-        const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
-            const prev = appStateRef.current;
-            appStateRef.current = nextState;
+    // STEP 6: App State Lifecycle Handling
+    // TODO: Subscribe to AppState 'change' events.
+    // - If app goes to 'background', disconnect to save battery
+    // - If app returns to 'active', reconnect if shouldConnectRef.current is true
 
-            if (prev.match(/inactive|background/) && nextState === 'active') {
-                // App came to foreground — reconnect if needed
-                if (shouldConnectRef.current && !wsRef.current) {
-                    clearRetryTimer();
-                    retryDelayRef.current = INITIAL_RETRY_DELAY_MS;
-                    connect();
-                }
-            } else if (nextState.match(/inactive|background/)) {
-                // App went to background — disconnect to save battery
-                clearRetryTimer();
-                closeSocket();
-            }
-        });
-
-        return () => subscription.remove();
-    }, [connect, closeSocket]);
-
-    // Cleanup on unmount
+    // STEP 7: Hook Unmount Cleanup
     useEffect(() => {
         isMountedRef.current = true;
         return () => {
             isMountedRef.current = false;
             shouldConnectRef.current = false;
-            clearRetryTimer();
+            // TODO: Clear retry timers and close socket
             closeSocket();
         };
     }, [closeSocket]);
 
+    // STEP 8: Refresh Connection Manual Trigger
     const refresh = useCallback(() => {
         if (!shouldConnectRef.current) return;
-        clearRetryTimer();
         closeSocket();
-        retryDelayRef.current = INITIAL_RETRY_DELAY_MS;
+        // TODO: Reset backoff delays and reconnect
         setTimeout(() => connect(), 300);
     }, [connect, closeSocket]);
 
