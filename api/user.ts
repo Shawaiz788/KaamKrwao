@@ -183,6 +183,9 @@ export const checkPhoneExists = async (phoneNumber: string): Promise<boolean> =>
                         return true; // Phone number already registered!
                     }
                 }
+                // If it is status 400 but phone_number is not flagged as existing,
+                // the number is available (other fields are just missing).
+                return false;
             } catch (e) {
                 console.error('[checkPhoneExists] Failed to parse JSON error response:', e);
             }
