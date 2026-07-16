@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
     View,
     Text,
@@ -8,6 +8,7 @@ import {
     Alert,
     ToastAndroid,
     Platform,
+    Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
@@ -32,6 +33,7 @@ function showToast(message: string) {
 export default function JobCard({ job, onPress, onQuickBid }: JobCardProps) {
     const [waitingBidAmount, setWaitingBidAmount] = useState<number | null>(null);
     const [countdown, setCountdown] = useState(10);
+    const progressAnim = useRef(new Animated.Value(1)).current;
 
     const base = job.budget;
     const plus5 = Math.round(base * 1.05);
@@ -44,6 +46,14 @@ export default function JobCard({ job, onPress, onQuickBid }: JobCardProps) {
         onQuickBid(job, amount);
         setWaitingBidAmount(amount);
         setCountdown(10);
+
+        // Animate countdown progress from right to left
+        progressAnim.setValue(1);
+        Animated.timing(progressAnim, {
+            toValue: 0,
+            duration: 10000,
+            useNativeDriver: false,
+        }).start();
 
         showToast(`You have successfully placed a bid of Rs.${amount.toLocaleString()}.`);
 
@@ -128,10 +138,23 @@ export default function JobCard({ job, onPress, onQuickBid }: JobCardProps) {
             {/* Waiting Status */}
             {isWaiting && (
                 <View style={styles.waitingBar}>
-                    <Ionicons name="time-outline" size={14} color={Colors.white} />
-                    <Text style={styles.waitingText}>
-                        Waiting for user to accept/decline... ({countdown}s)
-                    </Text>
+                    <Animated.View
+                        style={[
+                            styles.progressBar,
+                            {
+                                width: progressAnim.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: ['0%', '100%'],
+                                }),
+                            },
+                        ]}
+                    />
+                    <View style={styles.waitingContent}>
+                        <Ionicons name="time-outline" size={14} color="#064E3B" style={{ marginRight: 6 }} />
+                        <Text style={styles.waitingText}>
+                            Waiting for user to accept/decline... ({countdown}s)
+                        </Text>
+                    </View>
                 </View>
             )}
 
@@ -282,19 +305,30 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     waitingBar: {
+        height: 38,
+        borderRadius: 10,
+        backgroundColor: '#E5E7EB',
+        overflow: 'hidden',
+        position: 'relative',
+        justifyContent: 'center',
+    },
+    progressBar: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        bottom: 0,
+        backgroundColor: '#34D399',
+    },
+    waitingContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
-        backgroundColor: Colors.brand.medium,
-        borderRadius: 10,
         paddingHorizontal: 12,
-        paddingVertical: 8,
+        zIndex: 2,
     },
     waitingText: {
         fontSize: 12,
-        color: Colors.white,
-        fontWeight: '600',
-        flex: 1,
+        color: '#064E3B',
+        fontWeight: '700',
     },
     bidRow: {
         flexDirection: 'row',

@@ -51,6 +51,7 @@ export default function JobDetailBottomSheet({
     const insets = useSafeAreaInsets();
     const translateY = useRef(new Animated.Value(CLOSED_Y)).current;
     const currentY = useRef(CLOSED_Y);
+    const progressAnim = useRef(new Animated.Value(1)).current;
 
     const [selectedBid, setSelectedBid] = useState<BidOption>(null);
     const [customAmount, setCustomAmount] = useState('');
@@ -214,6 +215,14 @@ export default function JobDetailBottomSheet({
         setCountdown(10);
         Keyboard.dismiss();
 
+        // Animate progress from right to left (100% to 0% width)
+        progressAnim.setValue(1);
+        Animated.timing(progressAnim, {
+            toValue: 0,
+            duration: 10000,
+            useNativeDriver: false,
+        }).start();
+
         let remaining = 10;
         if (countdownTimer.current) clearInterval(countdownTimer.current);
         countdownTimer.current = setInterval(() => {
@@ -308,8 +317,16 @@ export default function JobDetailBottomSheet({
                         {/* Location */}
                         <View style={styles.detailRow}>
                             <Ionicons name="location-outline" size={16} color={Colors.neutral[400]} />
-                            <View>
-                                <Text style={styles.detailPrimary}>{job?.location_name}</Text>
+                            <View style={{ flex: 1 }}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Text style={styles.detailPrimary}>{job?.location_name}</Text>
+                                    {job?.distance_km !== undefined && job?.distance_km !== null && (
+                                        <View style={styles.distanceBadge}>
+                                            <Ionicons name="navigate-outline" size={12} color="#16A34A" style={{ marginRight: 2 }} />
+                                            <Text style={styles.distanceText}>{job.distance_km.toFixed(1)} km away</Text>
+                                        </View>
+                                    )}
+                                </View>
                                 {job?.location_area && (
                                     <Text style={styles.detailSecondary}>{job?.location_area}</Text>
                                 )}
@@ -434,10 +451,23 @@ export default function JobDetailBottomSheet({
                         {/* Waiting Bar */}
                         {isWaiting && (
                             <View style={styles.waitingBar}>
-                                <Ionicons name="time-outline" size={16} color={Colors.white} />
-                                <Text style={styles.waitingText}>
-                                    Waiting for user to accept/decline... ({countdown}s)
-                                </Text>
+                                <Animated.View
+                                    style={[
+                                        styles.progressBar,
+                                        {
+                                            width: progressAnim.interpolate({
+                                                inputRange: [0, 1],
+                                                outputRange: ['0%', '100%'],
+                                            }),
+                                        },
+                                    ]}
+                                />
+                                <View style={styles.waitingContent}>
+                                    <Ionicons name="time-outline" size={16} color="#064E3B" style={{ marginRight: 8 }} />
+                                    <Text style={styles.waitingText}>
+                                        Waiting for user to accept/decline... ({countdown}s)
+                                    </Text>
+                                </View>
                             </View>
                         )}
 
@@ -711,19 +741,31 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     waitingBar: {
+        height: 48,
+        borderRadius: 12,
+        backgroundColor: '#E5E7EB',
+        overflow: 'hidden',
+        position: 'relative',
+        justifyContent: 'center',
+        marginTop: 14,
+    },
+    progressBar: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        bottom: 0,
+        backgroundColor: '#34D399',
+    },
+    waitingContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        backgroundColor: Colors.brand.medium,
-        borderRadius: 12,
         paddingHorizontal: 14,
-        paddingVertical: 12,
+        zIndex: 2,
     },
     waitingText: {
-        flex: 1,
-        color: Colors.white,
         fontSize: 13,
-        fontWeight: '600',
+        fontWeight: '700',
+        color: '#064E3B',
     },
     bidButton: {
         backgroundColor: Colors.brand.dark,
@@ -747,5 +789,18 @@ const styles = StyleSheet.create({
         color: Colors.white,
         fontSize: 16,
         fontWeight: '700',
+    },
+    distanceBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#DCFCE7',
+        borderRadius: 8,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+    },
+    distanceText: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: '#16A34A',
     },
 });
