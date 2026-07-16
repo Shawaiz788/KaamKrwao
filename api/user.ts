@@ -209,27 +209,15 @@ export const updateUserOnBackend = async (
 ): Promise<User> => {
     console.log(`[user API] Updating user details on backend for User ID: ${userId}`, userDetails);
 
-    // Retrieve cached password from SecureStore
-    const password = await SecureStore.getItemAsync('user_password');
-    if (!password) {
-        throw new Error('Security credentials missing. Please sign out and sign in again to update your profile.');
-    }
-
-    const bodyPayload = {
-        ...userDetails,
-        password: password,
-    };
-
     const response = await fetchWithAuth(`${API_URL}/app/update/user/`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify(bodyPayload),
+        body: JSON.stringify(userDetails),
     });
     const responseText = await response.text();
     console.log('[user API] Update user response status:', response.status);
-
 
     if (!response.ok) {
         throw new Error(`Failed to update profile on backend. Status: ${response.status}. Response: ${responseText}`);
@@ -256,13 +244,6 @@ export const updateProfilePic = async (
         name: filename,
         type,
     } as any);
-
-    // Retrieve cached password from SecureStore
-    const password = await SecureStore.getItemAsync('user_password');
-    if (!password) {
-        throw new Error('Security credentials missing. Please sign out and sign in again to update your profile picture.');
-    }
-    formData.append('password', password);
 
     const response = await fetchWithAuth(`${API_URL}/app/update/user/`, {
         method: 'PATCH',
