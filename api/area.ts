@@ -8,7 +8,10 @@ export interface Area {
 }
 
 export const getAreas = async (): Promise<Area[]> => {
+    console.log('Fetching areas');
     const response = await fetchWithTimeout(`${API_URL}/app/area/`);
+    console.log(response.status)
+    console.log(response.json)
     return response.json();
 };
 

@@ -220,3 +220,34 @@ export const checkPhoneExists = async (phoneNumber: string): Promise<boolean> =>
         throw error;
     }
 };
+
+export const updateUserOnBackend = async (
+    userId: number,
+    userDetails: Partial<User>,
+    token?: string
+): Promise<User> => {
+    console.log(`[user API] Updating user details on backend for User ID: ${userId}`, userDetails);
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+    };
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetchWithTimeout(`${API_URL}/app/update/user/`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(userDetails),
+    });
+    const responseText = await response.text();
+    console.log('[user API] Update user response status:', response.status);
+
+    if (!response.ok) {
+        throw new Error(`Failed to update profile on backend. Status: ${response.status}. Response: ${responseText}`);
+    }
+
+    try {
+        return JSON.parse(responseText);
+    } catch (e) {
+        throw new Error(`Failed to parse profile update response as JSON. Content: ${responseText}`);
+    }
+};

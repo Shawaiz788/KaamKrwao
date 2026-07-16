@@ -1,0 +1,529 @@
+import React, { useEffect, useState } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { useAuth } from '@/provider/auth';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getLocationById, getOrCreateLocationChain, UserLocation } from '@/../api/location';
+import { getCities, City } from '@/../api/city';
+import { getAreas, Area } from '@/../api/area';
+import { updateUserOnBackend } from '@/../api/user';
+
+export default function SavedAddressesScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { user, login } = useAuth();
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // API list states
+  const [citiesList, setCitiesList] = useState<City[]>([]);
+  const [areasList, setAreasList] = useState<Area[]>([]);
+
+  // Dropdown visibility states
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const [showAreaDropdown, setShowAreaDropdown] = useState(false);
+
+  // Form states
+  const [houseNumber, setHouseNumber] = useState<number>(0);
+  const [streetNumber, setStreetNumber] = useState('');
+  const [area, setArea] = useState('');
+  const [city, setCity] = useState('');
+  const [country, setCountry] = useState('Pakistan');
+  const [zipCode, setZipCode] = useState<number>(0);
+  const [formattedAddress, setFormattedAddress] = useState('');
+  const [latitude, setLatitude] = useState<number>(31.5204); // Defaults
+  const [longitude, setLongitude] = useState<number>(74.3587);
+
+  useEffect(() => {
+    const fetchAddressAndMetadata = async () => {
+      setIsLoading(true);
+      try {
+        console.log('[SavedAddresses] Fetching cities and areas from API...');
+        const citiesData = await getCities();
+        const areasData = await getAreas();
+        setCitiesList(citiesData);
+        setAreasList(areasData);
+
+        const locationId = user?.location_id || user?.location?.id;
+        if (locationId) {
+          console.log('[SavedAddresses] Fetching address details for location ID:', locationId);
+          const loc = await getLocationById(locationId);
+
+          setHouseNumber(loc.house_number || 0);
+          setStreetNumber(loc.street_number || '');
+          setZipCode(loc.zip_code || 0);
+          setFormattedAddress(loc.formatted_address || '');
+          if (loc.latitude) setLatitude(loc.latitude);
+          if (loc.longitude) setLongitude(loc.longitude);
+
+          // Find city name from ID
+          const cityId = loc.city_id || loc.city;
+          const matchedCity = citiesData.find(c => c.id === cityId);
+          if (matchedCity) {
+            setCity(matchedCity.name);
+          } else if (typeof loc.city === 'object' && (loc.city as any)?.name) {
+            setCity((loc.city as any).name);
+          }
+
+          // Find area name from ID
+          const areaId = loc.area_id || loc.area;
+          const matchedArea = areasData.find(a => a.id === areaId);
+          if (matchedArea) {
+            setArea(matchedArea.name);
+          } else if (typeof loc.area === 'object' && (loc.area as any)?.name) {
+            setArea((loc.area as any).name);
+          }
+        }
+
+        // Country is hardcoded as requested
+        setCountry('Pakistan');
+      } catch (err) {
+        console.error('[SavedAddresses] Error fetching address or metadata:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAddressAndMetadata();
+  }, [user?.location_id]);
+
+  const handleSave = async () => {
+    if (houseNumber === 0) {
+      Alert.alert('Validation Error', 'House number is required.');
+      return;
+    }
+    if (!streetNumber.trim()) {
+      Alert.alert('Validation Error', 'Street number/name is required.');
+      return;
+    }
+    if (!area.trim()) {
+      Alert.alert('Validation Error', 'Area/Sector selection is required.');
+      return;
+    }
+    if (!city.trim()) {
+      Alert.alert('Validation Error', 'City selection is required.');
+      return;
+    }
+    if (zipCode === 0) {
+      Alert.alert('Validation Error', 'Zip code is required.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const finalAddress = formattedAddress.trim() ||
+        `House ${houseNumber}, Street ${streetNumber.trim()}, ${area.trim()}, ${city.trim()}`;
+
+      console.log('[SavedAddresses] Resolving location chain...');
+      const resolvedLoc = await getOrCreateLocationChain({
+        countryName: 'Pakistan',
+        cityName: city.trim(),
+        areaName: area.trim(),
+        houseNumber: houseNumber.toString(),
+        streetNumber: streetNumber.trim(),
+        latitude,
+        longitude,
+        zipCode: zipCode.toString(),
+        formatted_address: finalAddress,
+      });
+
+      const locationId = resolvedLoc.id;
+      if (!locationId) {
+        throw new Error('Failed to resolve or save location profile.');
+      }
+      console.log('[SavedAddresses] Location resolved with ID:', locationId);
+
+      // Link to user profile on backend
+      if (user?.id) {
+        console.log('[SavedAddresses] Linking location ID to user on backend...');
+        await updateUserOnBackend(user.id, { location_id: locationId }, user.token);
+      }
+
+      // Sync local state
+      const updatedUser = {
+        ...user,
+        location_id: locationId,
+        location: resolvedLoc,
+      } as any;
+
+      await login(updatedUser);
+      Alert.alert('Success', 'Address updated successfully!', [
+        { text: 'OK', onPress: () => router.back() }
+      ]);
+    } catch (err: any) {
+      console.error('[SavedAddresses] Error saving address:', err);
+      Alert.alert('Error', err.message || 'Failed to update address. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB' }}>
+        <ActivityIndicator size="large" color="#16A34A" />
+      </View>
+    );
+  }
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1, backgroundColor: '#F9FAFB' }}
+    >
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top > 0 ? insets.top + 10 : 20 }]}>
+        <View style={styles.headerTop}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </Pressable>
+          <Text style={styles.headerTitle}>Saved Addresses</Text>
+        </View>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.tipContainer}>
+          <Ionicons name="map-outline" size={24} color="#16A34A" style={{ marginRight: 10 }} />
+          <Text style={styles.tipText}>
+            Please select your city and area, and provide your home address details below.
+          </Text>
+        </View>
+
+        {/* Form Inputs */}
+        <View style={styles.formContainer}>
+          {/* House and Street */}
+          <View style={styles.row}>
+            <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+              <Text style={styles.inputLabel}>House #</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="e.g. 42"
+                  value={houseNumber ? houseNumber.toString() : ''}
+                  onChangeText={(val) => setHouseNumber(val ? Number(val.replace(/[^0-9]/g, '')) : 0)}
+                  keyboardType="numeric"
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+            </View>
+
+            <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+              <Text style={styles.inputLabel}>Street / Road</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="e.g. Street 4"
+                  value={streetNumber}
+                  onChangeText={setStreetNumber}
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* City Selector */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>City</Text>
+            <View style={{ zIndex: 2000 }}>
+              <Pressable
+                style={styles.dropdownTrigger}
+                onPress={() => {
+                  setShowCityDropdown(!showCityDropdown);
+                  setShowAreaDropdown(false);
+                }}
+              >
+                <Text style={city ? styles.dropdownTextSelected : styles.dropdownTextPlaceholder}>
+                  {city || 'Select City...'}
+                </Text>
+                <Ionicons name={showCityDropdown ? 'chevron-up' : 'chevron-down'} size={20} color="#4B5563" />
+              </Pressable>
+
+              {showCityDropdown && (
+                <View style={styles.dropdownList}>
+                  <ScrollView nestedScrollEnabled style={{ maxHeight: 180 }}>
+                    {citiesList.map((c) => (
+                      <Pressable
+                        key={c.id}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          setCity(c.name);
+                          setShowCityDropdown(false);
+                        }}
+                      >
+                        <Text style={styles.dropdownItemText}>{c.name}</Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* Area Selector */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Area / Sector</Text>
+            <View style={{ zIndex: 1000 }}>
+              <Pressable
+                style={styles.dropdownTrigger}
+                onPress={() => {
+                  setShowAreaDropdown(!showAreaDropdown);
+                  setShowCityDropdown(false);
+                }}
+              >
+                <Text style={area ? styles.dropdownTextSelected : styles.dropdownTextPlaceholder}>
+                  {area || 'Select Area / Sector...'}
+                </Text>
+                <Ionicons name={showAreaDropdown ? 'chevron-up' : 'chevron-down'} size={20} color="#4B5563" />
+              </Pressable>
+
+              {showAreaDropdown && (
+                <View style={styles.dropdownList}>
+                  <ScrollView nestedScrollEnabled style={{ maxHeight: 180 }}>
+                    {areasList.map((a) => (
+                      <Pressable
+                        key={a.id}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          setArea(a.name);
+                          setShowAreaDropdown(false);
+                        }}
+                      >
+                        <Text style={styles.dropdownItemText}>{a.name}</Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* Country and Zip */}
+          <View style={styles.row}>
+            <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+              <Text style={styles.inputLabel}>Country</Text>
+              <View style={[styles.inputWrapper, styles.disabledInput]}>
+                <TextInput
+                  style={[styles.textInput, { color: '#9CA3AF' }]}
+                  value={country}
+                  editable={false}
+                />
+                <Ionicons name="lock-closed" size={14} color="#9CA3AF" />
+              </View>
+            </View>
+
+            <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+              <Text style={styles.inputLabel}>Zip Code</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="e.g. 54000"
+                  value={zipCode ? zipCode.toString() : ''}
+                  onChangeText={(val) => setZipCode(val ? Number(val.replace(/[^0-9]/g, '')) : 0)}
+                  keyboardType="numeric"
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* Formatted Address */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Formatted Full Address (Optional)</Text>
+            <View style={[styles.inputWrapper, { height: 72, alignItems: 'flex-start', paddingVertical: 8 }]}>
+              <Ionicons name="location-outline" size={18} color="#9CA3AF" style={[styles.inputIcon, { marginTop: 4 }]} />
+              <TextInput
+                style={[styles.textInput, { height: '100%', textAlignVertical: 'top' }]}
+                placeholder="Leave blank to auto-generate"
+                value={formattedAddress}
+                onChangeText={setFormattedAddress}
+                multiline
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Save Button */}
+        <Pressable
+          style={styles.saveBtn}
+          onPress={handleSave}
+          disabled={isSaving}
+        >
+          {isSaving ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <>
+              <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.saveBtnText}>Save Address</Text>
+            </>
+          )}
+        </Pressable>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: {
+    backgroundColor: '#082C18',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+  },
+  backBtn: {
+    marginRight: 12,
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 60,
+  },
+  tipContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+    marginBottom: 20,
+  },
+  tipText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1B5E20',
+  },
+  formContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    marginBottom: 24,
+  },
+  row: {
+    flexDirection: 'row',
+  },
+  inputGroup: {
+    marginBottom: 18,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#374151',
+    marginBottom: 6,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    height: 48,
+    backgroundColor: '#F9FAFB',
+    paddingHorizontal: 12,
+  },
+  inputIcon: {
+    marginRight: 8,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1F2937',
+    height: '100%',
+  },
+  disabledInput: {
+    backgroundColor: '#E5E7EB',
+    opacity: 0.7,
+  },
+  saveBtn: {
+    backgroundColor: '#16A34A',
+    flexDirection: 'row',
+    height: 50,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  saveBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  dropdownTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    height: 48,
+    paddingHorizontal: 12,
+    backgroundColor: '#F9FAFB',
+  },
+  dropdownTextPlaceholder: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  dropdownTextSelected: {
+    color: '#1F2937',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  dropdownList: {
+    marginTop: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    maxHeight: 180,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  dropdownItemText: {
+    fontSize: 14,
+    color: '#1F2937',
+    fontWeight: '500',
+  },
+});

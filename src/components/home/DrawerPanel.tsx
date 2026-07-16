@@ -48,10 +48,21 @@ export default function DrawerPanel({
       <Animated.View style={[styles.drawerPanel, { transform: [{ translateX: drawerAnim }] }]}>
         {/* Header section with user avatar, verification, and rating */}
         <View style={[styles.drawerHeader, { paddingTop: insets.top > 0 ? insets.top + 20 : 30 }]}>
-          <View style={styles.drawerAvatarCircle}>
-            <Text style={styles.drawerAvatarText}>
-              {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
-            </Text>
+          <View style={styles.avatarWrapper}>
+            <View style={styles.drawerAvatarCircle}>
+              <Text style={styles.drawerAvatarText}>
+                {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
+              </Text>
+            </View>
+            <Pressable
+              style={styles.editAvatarBtn}
+              onPress={() => {
+                onClose();
+                router.push('/edit-profile');
+              }}
+            >
+              <Ionicons name="camera" size={12} color="#FFFFFF" />
+            </Pressable>
           </View>
           <Text style={styles.drawerName}>{user?.displayName || 'App User'}</Text>
           <Text style={styles.drawerPhone}>{user?.phoneNumber || 'No phone registered'}</Text>
@@ -101,11 +112,44 @@ export default function DrawerPanel({
             style={styles.drawerItem}
             onPress={() => {
               onClose();
-              router.push('/profile');
+              router.push('/edit-profile');
             }}
           >
-            <Ionicons name="settings-outline" size={20} color="#374151" style={styles.drawerItemIcon} />
-            <Text style={styles.drawerItemLabel}>Settings</Text>
+            <Ionicons name="person-outline" size={20} color="#374151" style={styles.drawerItemIcon} />
+            <Text style={styles.drawerItemLabel}>Edit Profile</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.drawerItem}
+            onPress={() => {
+              onClose();
+              router.push('/saved-addresses');
+            }}
+          >
+            <Ionicons name="location-outline" size={20} color="#374151" style={styles.drawerItemIcon} />
+            <Text style={styles.drawerItemLabel}>Saved Addresses</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.drawerItem}
+            onPress={() => {
+              onClose();
+              router.push('/security-privacy');
+            }}
+          >
+            <Ionicons name="shield-checkmark-outline" size={20} color="#374151" style={styles.drawerItemIcon} />
+            <Text style={styles.drawerItemLabel}>Security & Privacy</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.drawerItem}
+            onPress={() => {
+              onClose();
+              router.push('/support-help');
+            }}
+          >
+            <Ionicons name="help-circle-outline" size={20} color="#374151" style={styles.drawerItemIcon} />
+            <Text style={styles.drawerItemLabel}>Support & Help</Text>
           </Pressable>
 
           <View style={styles.drawerDivider} />
@@ -145,6 +189,10 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
   },
+  avatarWrapper: {
+    position: 'relative',
+    marginBottom: 10,
+  },
   drawerAvatarCircle: {
     width: 68,
     height: 68,
@@ -154,7 +202,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
-    marginBottom: 10,
+  },
+  editAvatarBtn: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#10B981',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#082C18',
   },
   drawerAvatarText: {
     fontSize: 28,

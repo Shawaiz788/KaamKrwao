@@ -52,11 +52,11 @@ export const createLocation = async (location: UserLocation): Promise<UserLocati
 };
 
 export const getLocationById = async (id: number): Promise<UserLocation> => {
-  console.log(`[getLocationById API] Fetching location details for ID: ${id}`);
-  const response = await fetchWithTimeout(`${API_URL}/app/location/${id}`);
+  // console.log(`[getLocationById API] Fetching location details for ID: ${id}`);
+  const response = await fetchWithTimeout(`${API_URL}/app/location/${id}/`);
   const responseText = await response.text();
-  console.log('[getLocationById API] Response Status:', response.status);
-  console.log('[getLocationById API] Response Body:', responseText);
+  // console.log('[getLocationById API] Response Status:', response.status);
+  // console.log('[getLocationById API] Response Body:', responseText);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch location by ID. Status: ${response.status}. Response: ${responseText}`);

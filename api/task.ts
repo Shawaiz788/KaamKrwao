@@ -61,7 +61,7 @@ const getAuthHeaders = async (extraHeaders: Record<string, string> = {}): Promis
         }
 
         token = newAccessToken;
-        console.log('[task API] JWT access token successfully refreshed.');
+        // console.log('[task API] JWT access token successfully refreshed.');
       } catch (err) {
         console.error('[task API] Background JWT token refresh failed. Proceeding with old token:', err);
       }
