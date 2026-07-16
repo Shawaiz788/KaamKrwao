@@ -70,20 +70,20 @@ export default function SignUpScreen() {
             const formattedPhone = `+92${data.phone}`;
 
             // Check if phone number is already registered in backend database
-            const phoneExists = await checkPhoneExists(formattedPhone);
-            if (phoneExists) {
-                setError('phone', { message: 'Phone number already registered. Please sign in.' });
-                setIsLoading(false);
-                return;
-            }
+            // const phoneExists = await checkPhoneExists(formattedPhone);
+            // if (phoneExists) {
+            //     setError('phone', { message: 'Phone number already registered. Please sign in.' });
+            //     setIsLoading(false);
+            //     return;
+            // }
 
             const auth = getAuth();
-            
+
             // Clear any stale user session to prevent firebase auth from getting stuck
             if (auth.currentUser) {
                 await signOut(auth);
             }
-            
+
             const confirmation = await signInWithPhoneNumber(auth, formattedPhone);
             await SecureStore.setItemAsync('pending_signup_password', data.password);
             console.log('[SecureStore] Saved pending signup password');

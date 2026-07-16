@@ -221,7 +221,7 @@ export const updateUserOnBackend = async (
     };
 
     const response = await fetchWithAuth(`${API_URL}/app/update/user/`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',
         },
@@ -265,7 +265,7 @@ export const updateProfilePic = async (
     formData.append('password', password);
 
     const response = await fetchWithAuth(`${API_URL}/app/update/user/`, {
-        method: 'PUT',
+        method: 'PATCH',
         body: formData,
         headers: {
             'Accept': 'application/json',
