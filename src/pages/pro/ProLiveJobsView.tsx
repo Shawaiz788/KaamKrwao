@@ -17,12 +17,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useAuth } from '@/provider/auth';
+import { useAuth } from '@/context/auth';
 import { Colors } from '@/constants/colors';
 import { useProWebSocket, LiveJob } from '@/hooks/useProWebSocket';
-import JobCard from './JobCard';
-import JobDetailBottomSheet from './JobDetailBottomSheet';
-import ProDrawerPanel from '../shared/ProDrawerPanel';
+import JobCard from '@/components/pro/JobCard';
+import JobDetailBottomSheet from '@/components/pro/JobDetailBottomSheet';
+import ProDrawerPanel from '@/components/pro/ProDrawerPanel';
 
 const { width } = Dimensions.get('window');
 

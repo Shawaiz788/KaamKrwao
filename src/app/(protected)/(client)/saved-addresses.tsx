@@ -12,13 +12,13 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from '@/provider/auth';
+import { useAuth } from '@/context/auth';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getLocationById, getOrCreateLocationChain, UserLocation } from '@/../api/location';
-import { getCities, City } from '@/../api/city';
-import { getAreas, Area } from '@/../api/area';
-import { updateUserOnBackend } from '@/../api/user';
+import { getLocationById, getOrCreateLocationChain, UserLocation } from '@/services/location';
+import { getCities, City } from '@/services/city';
+import { getAreas, Area } from '@/services/area';
+import { updateUserOnBackend } from '@/services/user';
 
 export default function SavedAddressesScreen() {
   const router = useRouter();

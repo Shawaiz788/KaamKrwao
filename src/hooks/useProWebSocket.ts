@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
-import { getLocationById } from '../../api/location';
+import { getLocationById } from '@/services/location';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
 // Convert http(s) → ws(s)

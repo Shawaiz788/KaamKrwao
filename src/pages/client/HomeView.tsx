@@ -23,15 +23,15 @@ import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import NetInfo from '@react-native-community/netinfo';
-import { getCategoriesFromBackend, Category, getPaymentPreferencesFromBackend, PaymentPreference } from '../../../api/task';
-import { getLocationById } from '../../../api/location';
-import { useAuth } from '../../provider/auth';
-import { usePostJob, Task } from '../../provider/post-job';
-import ActiveTaskScreen from './ActiveTaskScreen';
-import DrawerPanel from './DrawerPanel';
-import TaskHistoryModal from './TaskHistoryModal';
-import SearchLocationModal from './SearchLocationModal';
-import PinAdjusterModal from './PinAdjusterModal';
+import { getCategoriesFromBackend, Category, getPaymentPreferencesFromBackend, PaymentPreference } from '@/services/task';
+import { getLocationById } from '@/services/location';
+import { useAuth } from '@/context/auth';
+import { usePostJob, Task } from '@/context/post-job';
+import ActiveTaskScreen from '@/pages/client/ActiveTaskScreen';
+import DrawerPanel from '@/components/client/DrawerPanel';
+import TaskHistoryModal from '@/components/client/TaskHistoryModal';
+import SearchLocationModal from '@/components/client/SearchLocationModal';
+import PinAdjusterModal from '@/components/client/PinAdjusterModal';
 
 const { width, height } = Dimensions.get('window');
 

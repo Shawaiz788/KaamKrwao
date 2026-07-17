@@ -1,6 +1,6 @@
 import React from 'react';
 import { Stack, Redirect } from 'expo-router';
-import { useAuth } from '@/provider/auth';
+import { useAuth } from '@/context/auth';
 import { View, ActivityIndicator } from 'react-native';
 import { USER_TYPE_PRO } from '@/constants/userTypes';
 

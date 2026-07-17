@@ -1,6 +1,6 @@
 import React from 'react';
 import { Stack } from 'expo-router';
-import { PostJobProvider } from '@/provider/post-job';
+import { PostJobProvider } from '@/context/post-job';
 
 /**
  * Client route group layout.

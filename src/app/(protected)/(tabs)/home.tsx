@@ -1,7 +1,7 @@
 import React from 'react';
-import HomeView from '../../../components/home/HomeView';
-import { useAuth } from '../../../provider/auth';
-import { usePostJob } from '../../../provider/post-job';
+import HomeView from '@/pages/client/HomeView';
+import { useAuth } from '@/context/auth';
+import { usePostJob } from '@/context/post-job';
 import { useRouter } from 'expo-router';
 
 export default function HomeRoute() {

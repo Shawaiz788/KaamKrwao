@@ -12,10 +12,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useAuth } from '@/provider/auth';
+import { useAuth } from '@/context/auth';
 import { Colors } from '@/constants/colors';
-import ProDrawerPanel from '../shared/ProDrawerPanel';
-import { getProEarnings, ProEarnings } from '../../../../api/proEarnings';
+import ProDrawerPanel from '@/components/pro/ProDrawerPanel';
+import { getProEarnings, ProEarnings } from '@/services/proEarnings';
 
 const { width } = Dimensions.get('window');
 

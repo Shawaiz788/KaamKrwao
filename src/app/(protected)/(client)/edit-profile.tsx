@@ -13,10 +13,10 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from '@/provider/auth';
+import { useAuth } from '@/context/auth';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { updateUserOnBackend, updateProfilePic } from '@/../api/user';
+import { updateUserOnBackend, updateProfilePic } from '@/services/user';
 import * as ImagePicker from 'expo-image-picker';
 
 export default function EditProfileScreen() {

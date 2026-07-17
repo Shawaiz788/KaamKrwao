@@ -1,6 +1,6 @@
 import React from 'react';
-import ProfileView from '../../../components/home/ProfileView';
-import { useAuth } from '../../../provider/auth';
+import ProfileView from '@/pages/client/ProfileView';
+import { useAuth } from '@/context/auth';
 import { Alert } from 'react-native';
 
 export default function ProfileRoute() {

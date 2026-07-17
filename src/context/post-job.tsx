@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { useAuth } from './auth';
-import { createTaskChain, getStatusesFromBackend, updateTaskStatusOnBackend } from '../../api/task';
+import { createTaskChain, getStatusesFromBackend, updateTaskStatusOnBackend } from '@/services/task';
 import useTaskStore from '../store/taskStore';
 
 export interface Bid {

@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
-import { getProEarnings, ProEarnings } from '../../../../api/proEarnings';
+import { getProEarnings, ProEarnings } from '@/services/proEarnings';
 
 export default function ProEarningsRoute() {
   const router = useRouter();

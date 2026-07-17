@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useAuth } from '@/provider/auth';
+import { useAuth } from '@/context/auth';
 import { Colors } from '@/constants/colors';
 
 const { width } = Dimensions.get('window');
@@ -29,12 +29,12 @@ interface ProDrawerPanelProps {
 }
 
 const MENU_ITEMS: { key: DrawerRoute; label: string; icon: string }[] = [
-    { key: 'dashboard',    label: 'Dashboard',    icon: 'home-outline' },
-    { key: 'live-jobs',    label: 'Live Jobs',    icon: 'flash-outline' },
-    { key: 'job-history',  label: 'Job History',  icon: 'time-outline' },
-    { key: 'earnings',     label: 'Earnings',     icon: 'bar-chart-outline' },
+    { key: 'dashboard', label: 'Dashboard', icon: 'home-outline' },
+    { key: 'live-jobs', label: 'Live Jobs', icon: 'flash-outline' },
+    { key: 'job-history', label: 'Job History', icon: 'time-outline' },
+    { key: 'earnings', label: 'Earnings', icon: 'bar-chart-outline' },
     { key: 'verification', label: 'Verification', icon: 'shield-checkmark-outline' },
-    { key: 'settings',     label: 'Settings',     icon: 'settings-outline' },
+    { key: 'settings', label: 'Settings', icon: 'settings-outline' },
 ];
 
 export default function ProDrawerPanel({
@@ -117,7 +117,7 @@ export default function ProDrawerPanel({
                 <View style={styles.drawerHeader}>
                     <View style={styles.brandRow}>
                         <Image
-                            source={require('../../../../assets/icon.png')}
+                            source={require('../../../assets/icon.png')}
                             style={styles.brandIcon}
                             resizeMode="contain"
                         />

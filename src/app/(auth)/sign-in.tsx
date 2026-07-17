@@ -18,8 +18,8 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { loginUser } from '../../../api/user';
-import { useAuth } from '../../provider/auth';
+import { loginUser } from '@/services/user';
+import { useAuth } from '@/context/auth';
 import { USER_TYPE_PRO } from '../../constants/userTypes';
 
 const signInSchema = z.object({

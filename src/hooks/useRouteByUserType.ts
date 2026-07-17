@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { AppUser } from '@/provider/auth';
+import { AppUser } from '@/context/auth';
 import { USER_TYPE_PRO } from '@/constants/userTypes';
 
 /**

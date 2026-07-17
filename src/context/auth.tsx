@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import { UserLocation } from '../../api/location';
+import { UserLocation } from '@/services/location';
 
 export interface AppUser {
     uid: string;

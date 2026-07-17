@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { PostJobProvider } from '../../../provider/post-job';
+import { PostJobProvider } from '@/context/post-job';
 
 export default function TabLayout() {
   return (

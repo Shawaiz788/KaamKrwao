@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
-import { usePostJob, Bid } from '../../provider/post-job';
+import { usePostJob, Bid } from '@/context/post-job';
 import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');

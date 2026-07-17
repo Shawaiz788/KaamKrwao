@@ -18,7 +18,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { getAuth, PhoneAuthProvider, signInWithCredential, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../../provider/auth';
+import { useAuth } from '@/context/auth';
 const verifySchema = z.object({
   code: z.string({ message: 'Code is required' }).length(6, 'Verification code must be 6 digits'),
 });

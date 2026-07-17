@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { createMMKV } from 'react-native-mmkv';
-import { Task } from '../provider/post-job';
+import { Task } from '@/context/post-job';
 
 // 1. Initialize MMKV storage instance using the factory function in react-native-mmkv v4
 const storage = createMMKV();

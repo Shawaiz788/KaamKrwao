@@ -19,7 +19,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { getAuth, signInWithPhoneNumber, signOut } from '@react-native-firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { checkPhoneExists } from '../../../api/user';
+import { checkPhoneExists } from '@/services/user';
 
 const signUpSchema = z.object({
     phone: z

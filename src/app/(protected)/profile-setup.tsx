@@ -15,12 +15,12 @@ import {
   Modal,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useAuth } from '../../provider/auth';
+import { useAuth } from '@/context/auth';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { createUser, verifyUserOnBackend, loginUser } from '../../../api/user';
+import { createUser, verifyUserOnBackend, loginUser } from '@/services/user';
 import { useMutation } from '@tanstack/react-query';
-import { City, getCities, getOrCreateLocationChain } from '../../../api/location';
+import { City, getCities, getOrCreateLocationChain } from '@/services/location';
 import { COUNTRY_DATA, getCountryFromPhone } from '../../constants/locationData';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';

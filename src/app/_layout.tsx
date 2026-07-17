@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { useColorScheme } from 'react-native';
-import { AuthProvider } from '../provider/auth';
+import { AuthProvider } from '@/context/auth';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const queryClient = new QueryClient();

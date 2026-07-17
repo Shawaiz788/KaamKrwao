@@ -11,7 +11,7 @@ import {
   Image
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../provider/auth'; // Updated import
+import { useAuth } from '@/context/auth';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { USER_TYPE_PRO } from '../constants/userTypes';
