@@ -1,6 +1,8 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { getLocationById } from '@/services/location';
+import { LiveJob } from '@/types';
+export { LiveJob };
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
 // Convert http(s) → ws(s)
@@ -9,22 +11,7 @@ const WS_BASE = BASE_URL
     .replace(/^https/, 'wss')
     .replace(/^http/, 'ws');
 
-export interface LiveJob {
-    id: number;
-    title: string;
-    category: string;
-    category_icon?: string;
-    budget: number;
-    distance_km?: number;
-    location_name: string;
-    location_area?: string;
-    customer_name: string;
-    customer_rating?: number;
-    scheduled_date?: string;
-    created_at?: string;
-    description?: string;
-    attachments?: any[];
-}
+
 
 type WSMessage =
     | { type: 'job_list'; jobs: LiveJob[] }

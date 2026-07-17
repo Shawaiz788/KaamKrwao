@@ -1,30 +1,16 @@
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 const API_URL = BASE_URL ? BASE_URL.replace(/\/$/, '') : '';
 
-import { Country, getCountries, createCountry } from './country';
-import { City, getCities, createCity } from './city';
-import { Area, getAreas, createArea } from './area';
+import { getCountries, createCountry } from './country';
+import { getCities, createCity } from './city';
+import { getAreas, createArea } from './area';
 import { fetchWithTimeout } from './fetchClient';
+import { Country, City, Area, UserLocation } from '@/types';
 
 export { Country, getCountries, createCountry };
 export { City, getCities, createCity };
 export { Area, getAreas, createArea };
-
-export interface UserLocation {
-  id?: number;
-  house_number?: number;
-  street_number?: string;
-  area?: number;
-  city?: number;
-  country?: number;
-  area_id?: number;
-  city_id?: number;
-  country_id?: number;
-  formatted_address?: string;
-  latitude?: number;
-  longitude?: number;
-  zip_code?: number;
-}
+export { UserLocation };
 
 export const createLocation = async (location: UserLocation): Promise<UserLocation> => {
   console.log('[createLocation API] Sending payload:', JSON.stringify(location, null, 2));

@@ -3,31 +3,8 @@ import { Alert } from 'react-native';
 import { useAuth } from './auth';
 import { createTaskChain, getStatusesFromBackend, updateTaskStatusOnBackend } from '@/services/task';
 import useTaskStore from '../store/taskStore';
-
-export interface Bid {
-  id: string;
-  name: string;
-  avatar: string;
-  rating: number;
-  reviewsCount: number;
-  price: number;
-  timeEstimate: string;
-  message: string;
-}
-
-export interface Task {
-  id: string;
-  category: string;
-  description: string;
-  budget: number;
-  locationName: string;
-  paymentPref: string;
-  status: 'searching' | 'bidding' | 'accepted' | 'completed' | 'cancelled';
-  acceptedBid?: Bid;
-  createdAt: string;
-  backend_id?: number;
-  attachmentUris?: string[] | null;
-}
+import { Bid, Task } from '@/types';
+export { Bid, Task };
 
 export interface ChatMessage {
   id: string;

@@ -9,7 +9,7 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { AppUser } from '@/context/auth';
+import { AppUser } from '@/types';
 
 const { width } = Dimensions.get('window');
 

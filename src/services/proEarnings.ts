@@ -1,16 +1,9 @@
 import { fetchWithAuth } from './fetchClient';
+import { ProEarnings } from '@/types';
+export { ProEarnings };
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 const API_URL = BASE_URL ? BASE_URL.replace(/\/$/, '') : '';
-
-export interface ProEarnings {
-    worker_id: number;
-    daily_earning: number;
-    weekly_earning: number;
-    total_earning: number;
-    jobs_done: number;
-    updated_at: string;
-}
 
 export const getProEarnings = async (): Promise<ProEarnings> => {
     // console.log('[proEarnings API] Fetching professional earnings...');

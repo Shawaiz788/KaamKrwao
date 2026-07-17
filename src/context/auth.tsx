@@ -1,23 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import { UserLocation } from '@/services/location';
-
-export interface AppUser {
-    uid: string;
-    displayName: string;
-    email: string;
-    phoneNumber: string;
-    id?: number;
-    first_name: string;
-    last_name: string;
-    gender: string;
-    usertype_id: number;
-    location_id: number;
-    location?: UserLocation;
-    token?: string; // Optional JWT token
-    refreshToken?: string; // Optional JWT refresh token
-    profile_pic?: string; // Profile picture URL
-}
+import { AppUser } from '@/types';
 
 interface AuthContextType {
     user: AppUser | null;

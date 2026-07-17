@@ -1,34 +1,8 @@
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 const API_URL = BASE_URL ? BASE_URL.replace(/\/$/, '') : '';
-import { City, Country, Area, UserLocation } from './location';
 import { fetchWithTimeout, fetchWithAuth } from './fetchClient';
 import * as SecureStore from 'expo-secure-store';
-
-export interface UserType {
-    id: number;
-    name: string;
-}
-
-export interface User {
-    id?: number;
-    first_name: string;
-    last_name: string;
-    phone_number: string;
-    email: string;
-    gender: string;
-    password?: string;
-    overall_rating?: number;
-    usertype_id: number;
-    location_id: number;
-    profile_pic?: string;
-}
-
-
-// export const getUsers = async (): Promise<User[]> => {
-//     const response = await fetch(`${API_URL}/User`);
-//     const result = await response.json();
-//     return result;
-// };
+import { User, UserType, UserLocation } from '@/types';
 
 export const createUser = async (user: Omit<User, 'id'>): Promise<User> => {
     console.log('[createUser API] Sending payload:', JSON.stringify(user, null, 2));
