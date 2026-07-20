@@ -45,6 +45,7 @@ export interface User {
   usertype_id: number;
   location_id: number;
   profile_pic?: string;
+  image?: string;
 }
 
 export interface AppUser extends User {

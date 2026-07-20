@@ -216,13 +216,13 @@ export const updateProfilePic = async (
     const match = /\.(\w+)$/.exec(filename);
     const type = match ? `image/${match[1]}` : `image/jpeg`;
 
-    formData.append('profile_pic', {
+    formData.append('file', {
         uri,
         name: filename,
         type,
     } as any);
 
-    const response = await fetchWithAuth(`${API_URL}/app/update/user/`, {
+    const response = await fetchWithAuth(`${API_URL}/app/update/user/image/`, {
         method: 'PATCH',
         body: formData,
         headers: {
@@ -232,13 +232,16 @@ export const updateProfilePic = async (
 
     const responseText = await response.text();
     console.log('[user API] Update profile pic response status:', response.status);
+    console.log('[user API] Update profile pic response body:', responseText);
 
     if (!response.ok) {
         throw new Error(`Failed to update profile picture on backend. Status: ${response.status}. Response: ${responseText}`);
     }
 
     try {
-        return JSON.parse(responseText);
+        const parsed = JSON.parse(responseText);
+        console.log('[user API] Parsed profile pic response:', JSON.stringify(parsed));
+        return parsed;
     } catch (e) {
         throw new Error(`Failed to parse profile picture update response. Content: ${responseText}`);
     }

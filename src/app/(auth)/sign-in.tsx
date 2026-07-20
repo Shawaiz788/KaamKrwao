@@ -63,7 +63,7 @@ export default function SignInScreen() {
             const formattedPhone = `+92${data.phone}`;
             console.log('[SignIn] Logging in for phone:', formattedPhone);
             const userInfo = await loginUser(formattedPhone, data.password);
-            console.log('[SignIn] Login successful. User info:', userInfo);
+            console.log('[SignIn] Raw Login Response (userInfo):', JSON.stringify(userInfo, null, 2));
 
             // Extract JWT access and refresh tokens from response payload
             const token = (userInfo as any).access || (userInfo as any).access_token || (userInfo as any).token;
@@ -71,10 +71,16 @@ export default function SignInScreen() {
 
             // Extract the user data (handle both nested {user: {...}} and flat {...} structures)
             const userDetails = (userInfo as any).user || userInfo;
+            console.log('[SignIn] Extracted userDetails:', JSON.stringify(userDetails, null, 2));
 
             if (!userDetails || !userDetails.id) {
                 throw new Error('Login failed. Invalid user data received from server.');
             }
+
+            // Extract profile picture URL if present (handling both profile_pic and image fields)
+            const rawPic = userDetails.profile_pic || userDetails.image;
+            const BASE = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '');
+            const profilePicUrl = rawPic ? (rawPic.startsWith('http') ? rawPic : `${BASE}${rawPic}`) : undefined;
 
             // Map and log in locally
             const appUser = {
@@ -88,6 +94,7 @@ export default function SignInScreen() {
                 gender: userDetails.gender,
                 usertype_id: userDetails.usertype_id,
                 location_id: userDetails.location_id,
+                profile_pic: profilePicUrl,
                 token: token, // Attach JWT token
                 refreshToken: refreshToken, // Attach JWT refresh token
             };

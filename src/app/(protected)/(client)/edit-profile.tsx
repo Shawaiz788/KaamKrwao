@@ -89,8 +89,18 @@ export default function EditProfileScreen() {
       if (newProfilePicUri) {
         console.log('[EditProfile] Submitting profile picture update to backend...');
         const profilePicResponse = await updateProfilePic(newProfilePicUri);
-        if (profilePicResponse && profilePicResponse.profile_pic) {
-          updatedFields.profile_pic = profilePicResponse.profile_pic;
+        console.log('[EditProfile] Profile pic response:', JSON.stringify(profilePicResponse));
+        if (profilePicResponse) {
+          // Backend returns the URL under the key "image"
+          const resObj = profilePicResponse as any;
+          const rawUrl = resObj.image ?? resObj.profile_pic;
+          if (rawUrl) {
+            const BASE = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '');
+            updatedFields.profile_pic = rawUrl.startsWith('http') ? rawUrl : `${BASE}${rawUrl}`;
+            console.log('[EditProfile] Storing profile_pic URL:', updatedFields.profile_pic);
+          } else {
+            console.warn('[EditProfile] Backend response had no profile_pic field:', profilePicResponse);
+          }
         }
       }
 
