@@ -4,6 +4,7 @@ import {
     Text,
     StyleSheet,
     Pressable,
+    TouchableOpacity,
     Animated,
     PanResponder,
     Dimensions,
@@ -14,6 +15,7 @@ import {
     Platform,
     Keyboard,
     Image,
+    Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,10 +23,64 @@ import { Colors } from '@/constants/colors';
 import { LiveJob } from '@/hooks/useProWebSocket';
 import { getCategoryStyle } from '@/store/categoryStore';
 
-const { height: SCREEN_H } = Dimensions.get('window');
+const { height: WINDOW_H } = Dimensions.get('window');
+const { height: SCREEN_H_SCREEN } = Dimensions.get('screen');
+const SCREEN_H = Math.max(WINDOW_H, SCREEN_H_SCREEN);
 const FULL_H = SCREEN_H;
-const HALF_H = SCREEN_H * 0.55;
+const HALF_H = SCREEN_H * 0.58;
 const CLOSED_Y = SCREEN_H;
+
+const BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '');
+
+function getNormalizedAttachments(attachmentsData: any): string[] {
+    if (!attachmentsData) return [];
+
+    let list: any[] = [];
+    if (Array.isArray(attachmentsData)) {
+        list = attachmentsData;
+    } else if (typeof attachmentsData === 'string') {
+        const trimmed = attachmentsData.trim();
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+            try {
+                const parsed = JSON.parse(trimmed);
+                if (Array.isArray(parsed)) list = parsed;
+            } catch {
+                list = trimmed.split(',').map((s) => s.trim());
+            }
+        } else if (trimmed.length > 0) {
+            list = trimmed.split(',').map((s) => s.trim());
+        }
+    } else if (typeof attachmentsData === 'object') {
+        list = [attachmentsData];
+    }
+
+    return list
+        .map((item) => {
+            if (!item) return null;
+            let uri = '';
+            if (typeof item === 'string') {
+                uri = item;
+            } else if (typeof item === 'object') {
+                uri = item.file || item.uri || item.url || item.path || '';
+            }
+            if (!uri) return null;
+            if (
+                !uri.startsWith('http://') &&
+                !uri.startsWith('https://') &&
+                !uri.startsWith('file://') &&
+                !uri.startsWith('data:')
+            ) {
+                if (BASE_URL) {
+                    const cleanPath = uri.startsWith('/') ? uri : `/${uri}`;
+                    uri = `${BASE_URL}${cleanPath}`;
+                }
+            }
+            return uri;
+        })
+        .filter((uri): uri is string => Boolean(uri && uri.trim().length > 0));
+}
+
+import { ActiveBidState } from '@/hooks/useActiveBids';
 
 type BidOption = 'plus5' | 'plus10' | 'plus15' | 'custom' | null;
 
@@ -33,6 +89,8 @@ interface JobDetailBottomSheetProps {
     isVisible: boolean;
     onClose: () => void;
     onBidAccepted?: (job: LiveJob, amount: number) => void;
+    activeBid?: ActiveBidState | null;
+    onPlaceBid?: (job: LiveJob, amount: number) => void;
 }
 
 function showToast(message: string) {
@@ -48,6 +106,8 @@ export default function JobDetailBottomSheet({
     isVisible,
     onClose,
     onBidAccepted,
+    activeBid,
+    onPlaceBid,
 }: JobDetailBottomSheetProps) {
     const insets = useSafeAreaInsets();
     const translateY = useRef(new Animated.Value(CLOSED_Y)).current;
@@ -56,11 +116,11 @@ export default function JobDetailBottomSheet({
 
     const [selectedBid, setSelectedBid] = useState<BidOption>(null);
     const [customAmount, setCustomAmount] = useState('');
-    const [isWaiting, setIsWaiting] = useState(false);
     const [countdown, setCountdown] = useState(10);
     const [sheetState, setSheetState] = useState<'default' | 'expanded'>('default');
     const [keyboardHeight, setKeyboardHeight] = useState(0);
     const [localVisible, setLocalVisible] = useState(isVisible);
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
     const waitingTimer = useRef<NodeJS.Timeout | null>(null);
     const countdownTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -87,6 +147,47 @@ export default function JobDetailBottomSheet({
         return base;
     })();
 
+    const isWaiting = Boolean(activeBid);
+    const displayAmount = activeBid ? activeBid.amount : computedBidAmount;
+
+    useEffect(() => {
+        if (!activeBid || !isVisible) {
+            progressAnim.setValue(1);
+            return;
+        }
+
+        const elapsed = Date.now() - activeBid.startTimeMs;
+        const remainingMs = Math.max(0, activeBid.durationMs - elapsed);
+
+        if (remainingMs <= 0) return;
+
+        const initialRatio = remainingMs / activeBid.durationMs;
+        progressAnim.setValue(initialRatio);
+        setCountdown(Math.ceil(remainingMs / 1000));
+
+        const anim = Animated.timing(progressAnim, {
+            toValue: 0,
+            duration: remainingMs,
+            useNativeDriver: false,
+        });
+        anim.start();
+
+        const interval = setInterval(() => {
+            const currentElapsed = Date.now() - activeBid.startTimeMs;
+            const rem = Math.max(0, activeBid.durationMs - currentElapsed);
+            const sec = Math.ceil(rem / 1000);
+            setCountdown(sec);
+            if (rem <= 0) {
+                clearInterval(interval);
+            }
+        }, 1000);
+
+        return () => {
+            anim.stop();
+            clearInterval(interval);
+        };
+    }, [activeBid, isVisible]);
+
     // Keyboard height listener
     useEffect(() => {
         const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -111,8 +212,6 @@ export default function JobDetailBottomSheet({
             // Reset state
             setSelectedBid(null);
             setCustomAmount('');
-            setIsWaiting(false);
-            setCountdown(10);
             setSheetState('default');
             setLocalVisible(true);
 
@@ -211,35 +310,13 @@ export default function JobDetailBottomSheet({
         })
     ).current;
 
-    const startWaiting = () => {
-        setIsWaiting(true);
-        setCountdown(10);
-        Keyboard.dismiss();
-
-        // Animate progress from right to left (100% to 0% width)
-        progressAnim.setValue(1);
-        Animated.timing(progressAnim, {
-            toValue: 0,
-            duration: 10000,
-            useNativeDriver: false,
-        }).start();
-
-        let remaining = 10;
-        if (countdownTimer.current) clearInterval(countdownTimer.current);
-        countdownTimer.current = setInterval(() => {
-            remaining -= 1;
-            setCountdown(remaining);
-            if (remaining <= 0) {
-                clearInterval(countdownTimer.current!);
-                setIsWaiting(false);
-            }
-        }, 1000);
-    };
-
     const handlePlaceBid = () => {
         if (isWaiting || !job) return;
         showToast(`You have successfully placed a bid of Rs.${computedBidAmount.toLocaleString()}.`);
-        startWaiting();
+        Keyboard.dismiss();
+        if (onPlaceBid) {
+            onPlaceBid(job, computedBidAmount);
+        }
     };
 
     const catStyle = getCategoryStyle(job?.category ?? '');
@@ -252,12 +329,19 @@ export default function JobDetailBottomSheet({
 
     // Interpolate translateY to animate scrim opacity
     const scrimOpacity = translateY.interpolate({
-        inputRange: [SCREEN_H - HALF_H, SCREEN_H],
-        outputRange: [1, 0],
+        inputRange: [0, SCREEN_H - HALF_H, SCREEN_H],
+        outputRange: [1, 0.8, 0],
         extrapolate: 'clamp',
     });
 
     const isExpanded = sheetState === 'expanded';
+
+    // Interpolate top border radius as sheet reaches full top (0..50px)
+    const animatedBorderRadius = translateY.interpolate({
+        inputRange: [0, 50],
+        outputRange: [0, 24],
+        extrapolate: 'clamp',
+    });
 
     const sheetStyle = [
         styles.sheet,
@@ -265,12 +349,13 @@ export default function JobDetailBottomSheet({
             transform: [{ translateY }],
             bottom: keyboardHeight,
             paddingTop: isExpanded ? insets.top : 0,
-            borderTopLeftRadius: isExpanded ? 0 : 24,
-            borderTopRightRadius: isExpanded ? 0 : 24,
+            borderTopLeftRadius: animatedBorderRadius,
+            borderTopRightRadius: animatedBorderRadius,
         }
     ];
 
-    const scrollViewMaxH = (isExpanded ? SCREEN_H - insets.top : HALF_H) - 60 - keyboardHeight;
+    const scrollViewHeight = (isExpanded ? SCREEN_H - insets.top : HALF_H) - 36 - keyboardHeight;
+    const attachmentList = getNormalizedAttachments(job?.attachments);
 
     return (
         <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -279,9 +364,10 @@ export default function JobDetailBottomSheet({
                 <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
             </Animated.View>
 
-            {/* White status bar filler — covers safe area on Android when fully expanded */}
+            {/* White status bar filler — covers safe area on Android/iOS when fully expanded */}
             {isExpanded && insets.top > 0 && (
                 <View
+                    pointerEvents="none"
                     style={{
                         position: 'absolute',
                         top: 0,
@@ -302,14 +388,12 @@ export default function JobDetailBottomSheet({
                 </View>
 
                 <ScrollView
-                    style={{ maxHeight: scrollViewMaxH }}
-                    contentContainerStyle={[
-                        styles.content,
-                        { flexGrow: 1 },
-                        sheetState === 'expanded' && { justifyContent: 'space-between' }
-                    ]}
+                    style={{ flex: 1, maxHeight: scrollViewHeight }}
+                    contentContainerStyle={styles.content}
                     keyboardShouldPersistTaps="handled"
-                    showsVerticalScrollIndicator={false}
+                    showsVerticalScrollIndicator={true}
+                    bounces={true}
+                    overScrollMode="always"
                 >
                     {/* Top Container: Job details info */}
                     <View style={styles.topContainer}>
@@ -368,38 +452,51 @@ export default function JobDetailBottomSheet({
                             </View>
                         </View>
 
-                        {/* Description & Attachments (visible when expanded) */}
-                        {sheetState === 'expanded' && (
-                            <View style={styles.expandedDetails}>
-                                <View style={styles.descriptionSection}>
-                                    <Text style={styles.subSectionLabel}>DESCRIPTION</Text>
-                                    <Text style={styles.descriptionText}>
-                                        {job?.description || (job as any)?.body || 'No description provided.'}
-                                    </Text>
-                                </View>
-
-                                {job?.attachments && job.attachments.length > 0 && (
-                                    <View style={styles.attachmentsSection}>
-                                        <Text style={styles.subSectionLabel}>ATTACHMENTS</Text>
-                                        <ScrollView
-                                            horizontal
-                                            showsHorizontalScrollIndicator={false}
-                                            contentContainerStyle={styles.attachmentsRow}
-                                        >
-                                            {job.attachments.map((item: any, idx: number) => {
-                                                const uri = typeof item === 'string' ? item : item.file || item.uri || item.url;
-                                                if (!uri) return null;
-                                                return (
-                                                    <View key={idx} style={styles.attachmentCard}>
-                                                        <Image source={{ uri }} style={styles.attachmentImage} />
-                                                    </View>
-                                                );
-                                            })}
-                                        </ScrollView>
-                                    </View>
-                                )}
+                        {/* Description & Attachments */}
+                        <View style={styles.expandedDetails}>
+                            <View style={styles.descriptionSection}>
+                                <Text style={styles.subSectionLabel}>DESCRIPTION</Text>
+                                <Text style={styles.descriptionText}>
+                                    {job?.description || (job as any)?.body || 'No description provided.'}
+                                </Text>
                             </View>
-                        )}
+
+                            {attachmentList.length > 0 && (
+                                <View style={styles.attachmentsSection}>
+                                    <View style={styles.attachmentsHeaderRow}>
+                                        <Text style={styles.subSectionLabel}>ATTACHMENTS ({attachmentList.length})</Text>
+                                        <Text style={styles.tapToViewHint}>Tap image to view</Text>
+                                    </View>
+                                    <ScrollView
+                                        horizontal
+                                        nestedScrollEnabled
+                                        showsHorizontalScrollIndicator={false}
+                                        contentContainerStyle={styles.attachmentsRow}
+                                        keyboardShouldPersistTaps="handled"
+                                    >
+                                        {attachmentList.map((uri, idx) => (
+                                            <TouchableOpacity
+                                                key={idx}
+                                                style={styles.attachmentCard}
+                                                activeOpacity={0.7}
+                                                onPress={() => {
+                                                    setPreviewImage(uri);
+                                                }}
+                                            >
+                                                <Image
+                                                    source={{ uri }}
+                                                    style={styles.attachmentImage}
+                                                    resizeMode="cover"
+                                                />
+                                                <View style={styles.zoomIconOverlay} pointerEvents="none">
+                                                    <Ionicons name="expand-outline" size={12} color={Colors.white} />
+                                                </View>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </ScrollView>
+                                </View>
+                            )}
+                        </View>
 
                         <View style={styles.sheetDivider} />
                     </View>
@@ -500,13 +597,38 @@ export default function JobDetailBottomSheet({
                         >
                             <Text style={styles.bidButtonText}>
                                 {isWaiting
-                                    ? `Bid Placed — Rs.${computedBidAmount.toLocaleString()}`
+                                    ? `Bid Placed — Rs.${displayAmount.toLocaleString()}`
                                     : `Place Bid at Rs.${computedBidAmount.toLocaleString()}`}
                             </Text>
                         </Pressable>
                     </View>
                 </ScrollView>
             </Animated.View>
+
+            {/* Full-Screen Image Preview Overlay */}
+            {Boolean(previewImage) && (
+                <View style={styles.modalBackdrop}>
+                    <TouchableOpacity
+                        style={styles.modalCloseArea}
+                        activeOpacity={1}
+                        onPress={() => setPreviewImage(null)}
+                    />
+                    <View style={styles.modalImageContainer} pointerEvents="none">
+                        <Image
+                            source={{ uri: previewImage! }}
+                            style={styles.modalFullImage}
+                            resizeMode="contain"
+                        />
+                    </View>
+                    <TouchableOpacity
+                        style={styles.modalCloseBtn}
+                        activeOpacity={0.7}
+                        onPress={() => setPreviewImage(null)}
+                    >
+                        <Ionicons name="close" size={26} color={Colors.white} />
+                    </TouchableOpacity>
+                </View>
+            )}
         </View>
     );
 }
@@ -530,6 +652,8 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.15,
         shadowRadius: 16,
         elevation: 24,
+        zIndex: 10,
+        overflow: 'hidden',
     },
     handleArea: {
         alignItems: 'center',
@@ -668,23 +792,93 @@ const styles = StyleSheet.create({
         color: Colors.neutral[600],
         lineHeight: 20,
     },
+    attachmentsHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    tapToViewHint: {
+        fontSize: 10,
+        color: Colors.neutral[400],
+        fontWeight: '500',
+    },
     attachmentsSection: {
         gap: 8,
+        marginTop: 6,
     },
     attachmentsRow: {
         gap: 12,
-        paddingVertical: 4,
+        paddingVertical: 6,
     },
     attachmentCard: {
-        borderRadius: 8,
+        width: 104,
+        height: 104,
+        borderRadius: 12,
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: Colors.neutral[200],
+        backgroundColor: Colors.neutral[100],
+        position: 'relative',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+        elevation: 2,
     },
     attachmentImage: {
-        width: 100,
-        height: 100,
-        borderRadius: 8,
+        width: '100%',
+        height: '100%',
+    },
+    zoomIconOverlay: {
+        position: 'absolute',
+        bottom: 6,
+        right: 6,
+        backgroundColor: 'rgba(0,0,0,0.55)',
+        borderRadius: 10,
+        width: 22,
+        height: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalBackdrop: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.95)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 99999,
+        elevation: 99999,
+    },
+    modalCloseArea: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    modalImageContainer: {
+        width: '92%',
+        height: '78%',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10000,
+        elevation: 10000,
+    },
+    modalFullImage: {
+        width: '100%',
+        height: '100%',
+    },
+    modalCloseBtn: {
+        position: 'absolute',
+        top: 50,
+        right: 20,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(255,255,255,0.25)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10001,
+        elevation: 10001,
     },
     sheetDivider: {
         height: 1,

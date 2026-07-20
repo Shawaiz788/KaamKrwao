@@ -28,7 +28,7 @@ type WSMessage =
             attachments?: any[];
         };
     }
-    | { type: 'ping' };
+    | { type: 'ping' | 'heartbeat'; task?: null };
 
 export type WSStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
@@ -107,7 +107,7 @@ export function useProWebSocket({
             if (!isMountedRef.current) return;
             try {
                 const msg: WSMessage = JSON.parse(event.data);
-                console.log('[useProWebSocket] Message received:', msg.type);
+                console.log('[useProWebSocket] Message received:', msg);
 
                 if (msg.type === 'task_created' && msg.task) {
                     const t = msg.task;

@@ -23,6 +23,7 @@ import { useProWebSocket, LiveJob } from '@/hooks/useProWebSocket';
 import JobCard from '@/components/pro/JobCard';
 import JobDetailBottomSheet from '@/components/pro/JobDetailBottomSheet';
 import ProDrawerPanel from '@/components/pro/ProDrawerPanel';
+import { useActiveBids } from '@/hooks/useActiveBids';
 
 const { width } = Dimensions.get('window');
 
@@ -172,6 +173,7 @@ export default function ProLiveJobsView() {
         isOnline,
     });
 
+    const { placeBid, getActiveBid } = useActiveBids(10);
 
     // Use mock jobs if WS not connected OR as demo fallback
     const displayJobs: LiveJob[] = (wsJobs.length > 0)
@@ -189,6 +191,7 @@ export default function ProLiveJobsView() {
     const handleQuickBid = (job: LiveJob, amount: number) => {
         // WS integration: send bid message
         console.log(`[ProLiveJobsView] Quick bid: job=${job.id}, amount=${amount}`);
+        placeBid(job.id, amount);
     };
 
     const handleOpenJobDetail = (job: LiveJob) => {
@@ -291,6 +294,7 @@ export default function ProLiveJobsView() {
                             job={job}
                             onPress={handleOpenJobDetail}
                             onQuickBid={handleQuickBid}
+                            activeBid={getActiveBid(job.id)}
                         />
                     ))}
                 </ScrollView>
@@ -301,6 +305,10 @@ export default function ProLiveJobsView() {
                 job={selectedJob}
                 isVisible={sheetVisible}
                 onClose={() => setSheetVisible(false)}
+                activeBid={selectedJob ? getActiveBid(selectedJob.id) : null}
+                onPlaceBid={(job, amount) => {
+                    handleQuickBid(job, amount);
+                }}
                 onBidAccepted={(job, amount) => {
                     setSheetVisible(false);
                 }}

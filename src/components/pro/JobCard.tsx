@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { LiveJob } from '@/hooks/useProWebSocket';
 import { getCategoryStyle } from '@/store/categoryStore';
+import { ActiveBidState } from '@/hooks/useActiveBids';
 
 const { width } = Dimensions.get('window');
 
@@ -21,6 +22,7 @@ interface JobCardProps {
     job: LiveJob;
     onPress: (job: LiveJob) => void;
     onQuickBid: (job: LiveJob, amount: number) => void;
+    activeBid?: ActiveBidState | null;
 }
 
 function showToast(message: string) {
@@ -31,42 +33,56 @@ function showToast(message: string) {
     }
 }
 
-export default function JobCard({ job, onPress, onQuickBid }: JobCardProps) {
-    const [waitingBidAmount, setWaitingBidAmount] = useState<number | null>(null);
-    const [countdown, setCountdown] = useState(10);
+export default function JobCard({ job, onPress, onQuickBid, activeBid }: JobCardProps) {
     const progressAnim = useRef(new Animated.Value(1)).current;
+    const [countdown, setCountdown] = useState(10);
 
     const base = job.budget;
     const plus5 = Math.round(base * 1.05);
     const plus10 = Math.round(base * 1.1);
 
-    const isWaiting = waitingBidAmount !== null;
+    const isWaiting = Boolean(activeBid);
+
+    useEffect(() => {
+        if (!activeBid) {
+            progressAnim.setValue(1);
+            return;
+        }
+
+        const elapsed = Date.now() - activeBid.startTimeMs;
+        const remainingMs = Math.max(0, activeBid.durationMs - elapsed);
+
+        if (remainingMs <= 0) return;
+
+        const initialRatio = remainingMs / activeBid.durationMs;
+        progressAnim.setValue(initialRatio);
+        setCountdown(Math.ceil(remainingMs / 1000));
+
+        Animated.timing(progressAnim, {
+            toValue: 0,
+            duration: remainingMs,
+            useNativeDriver: false,
+        }).start();
+
+        const interval = setInterval(() => {
+            const currentElapsed = Date.now() - activeBid.startTimeMs;
+            const rem = Math.max(0, activeBid.durationMs - currentElapsed);
+            const sec = Math.ceil(rem / 1000);
+            setCountdown(sec);
+            if (rem <= 0) {
+                clearInterval(interval);
+            }
+        }, 1000);
+
+        return () => {
+            clearInterval(interval);
+        };
+    }, [activeBid]);
 
     const handleQuickBid = (amount: number) => {
         if (isWaiting) return;
         onQuickBid(job, amount);
-        setWaitingBidAmount(amount);
-        setCountdown(10);
-
-        // Animate countdown progress from right to left
-        progressAnim.setValue(1);
-        Animated.timing(progressAnim, {
-            toValue: 0,
-            duration: 10000,
-            useNativeDriver: false,
-        }).start();
-
         showToast(`You have successfully placed a bid of Rs.${amount.toLocaleString()}.`);
-
-        let remaining = 10;
-        const interval = setInterval(() => {
-            remaining -= 1;
-            setCountdown(remaining);
-            if (remaining <= 0) {
-                clearInterval(interval);
-                setWaitingBidAmount(null);
-            }
-        }, 1000);
     };
 
     // Resolve category icon + colour from the LiveJob fields (set by store) or fall back to name-based mapping
