@@ -23,7 +23,8 @@ import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import NetInfo from '@react-native-community/netinfo';
-import { getCategoriesFromBackend, Category, getPaymentPreferencesFromBackend, PaymentPreference } from '@/services/task';
+import { getPaymentPreferencesFromBackend, PaymentPreference } from '@/services/task';
+import useCategoryStore, { getCategoryStyle } from '@/store/categoryStore';
 import { getLocationById } from '@/services/location';
 import { useAuth } from '@/context/auth';
 import { usePostJob, Task } from '@/context/post-job';
@@ -83,40 +84,6 @@ export const MOCK_PROS: Pro[] = [
   },
 ];
 
-const getCategoryStyle = (name: string) => {
-  const normalized = name.trim().toLowerCase();
-  const stylesMap: Record<string, { icon: string; color: string }> = {
-    'electrician': { icon: 'flash', color: '#F97316' },
-    'plumber': { icon: 'build', color: '#A855F7' },
-    'ac service': { icon: 'snow', color: '#3B82F6' },
-    'tutor': { icon: 'school', color: '#10B981' },
-    'mehndi': { icon: 'leaf', color: '#84CC16' },
-    'cleaning': { icon: 'sparkles', color: '#EAB308' },
-    'painter': { icon: 'brush', color: '#EC4899' },
-    'mason': { icon: 'construct', color: '#EF4444' },
-    'other': { icon: 'ellipsis-horizontal', color: '#6B7280' },
-  };
-
-  if (stylesMap[normalized]) return stylesMap[normalized];
-
-  for (const key of Object.keys(stylesMap)) {
-    if (normalized.includes(key) || key.includes(normalized)) {
-      return stylesMap[key];
-    }
-  }
-
-  const colors = ['#F97316', '#A855F7', '#3B82F6', '#10B981', '#84CC16', '#EAB308', '#EC4899', '#EF4444', '#6366F1'];
-  const icons = ['flash', 'build', 'snow', 'school', 'leaf', 'sparkles', 'brush', 'construct', 'briefcase'];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const index = Math.abs(hash) % colors.length;
-  return {
-    icon: icons[index],
-    color: colors[index]
-  };
-};
 
 const getPaymentPrefStyle = (name: string) => {
   const normalized = name.trim().toLowerCase();
@@ -262,9 +229,8 @@ export default function HomeView({ userName }: HomeViewProps) {
   // Shimmering Shared Animation
   const shimmerAnim = useRef(new Animated.Value(0.3)).current;
 
-  // Dynamic Categories API State
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loadingCategories, setLoadingCategories] = useState(true);
+  // Categories from the shared Zustand store (fetched once per session)
+  const { categories, loading: loadingCategories, ensureCategories } = useCategoryStore();
 
   // Dynamic Payment Preferences API State
   const [paymentPreferences, setPaymentPreferences] = useState<PaymentPreference[]>([]);
@@ -416,35 +382,14 @@ export default function HomeView({ userName }: HomeViewProps) {
     return () => unsubscribe();
   }, []);
 
-  // Fetch categories from Backend API (completely removed DEFAULT_CATEGORIES fallback)
+  // Ensure categories are loaded (no-op after first successful fetch this session)
   useEffect(() => {
-    let isMounted = true;
-    const fetchCategories = async () => {
-      try {
-        setLoadingCategories(true);
-        const data = await getCategoriesFromBackend();
-        if (isMounted) {
-          setCategories(data);
-          if (data.length > 0 && !activeCategory) {
-            setActiveCategory(data[0].name);
-          }
-        }
-      } catch (err) {
-        console.error('[HomeView] Error loading categories from API:', err);
-        if (isMounted) {
-          setCategories([]);
-        }
-      } finally {
-        if (isMounted) {
-          setLoadingCategories(false);
-        }
+    ensureCategories().then(() => {
+      const { categories: cats } = useCategoryStore.getState();
+      if (cats.length > 0 && !activeCategory) {
+        setActiveCategory(cats[0].name);
       }
-    };
-
-    fetchCategories();
-    return () => {
-      isMounted = false;
-    };
+    });
   }, []);
 
   // Fetch payment preferences from Backend API

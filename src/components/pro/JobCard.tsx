@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { LiveJob } from '@/hooks/useProWebSocket';
+import { getCategoryStyle } from '@/store/categoryStore';
 
 const { width } = Dimensions.get('window');
 
@@ -68,17 +69,12 @@ export default function JobCard({ job, onPress, onQuickBid }: JobCardProps) {
         }, 1000);
     };
 
-    // Category icon mapping
-    const categoryIcon = (() => {
-        const cat = (job.category || '').toLowerCase();
-        if (cat.includes('ac') || cat.includes('air')) return { name: 'snow', color: '#3B82F6' };
-        if (cat.includes('electric')) return { name: 'flash', color: '#F97316' };
-        if (cat.includes('plumb')) return { name: 'water', color: '#06B6D4' };
-        if (cat.includes('clean')) return { name: 'sparkles', color: '#EAB308' };
-        if (cat.includes('paint')) return { name: 'brush', color: '#EC4899' };
-        if (cat.includes('tutor')) return { name: 'school', color: '#10B981' };
-        return { name: 'construct', color: '#8B5CF6' };
-    })();
+    // Resolve category icon + colour from the LiveJob fields (set by store) or fall back to name-based mapping
+    const catStyle = getCategoryStyle(job.category);
+    const categoryIcon = {
+        name: job.category_icon ?? catStyle.icon,
+        color: job.category_color ?? catStyle.color,
+    };
 
     return (
         <Pressable style={styles.card} onPress={() => onPress(job)}>

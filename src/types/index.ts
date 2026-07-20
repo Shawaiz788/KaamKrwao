@@ -77,6 +77,7 @@ export interface LiveJob {
   title: string;
   category: string;
   category_icon?: string;
+  category_color?: string;
   budget: number;
   distance_km?: number;
   location_name: string;

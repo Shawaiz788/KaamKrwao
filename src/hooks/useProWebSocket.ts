@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { getLocationById } from '@/services/location';
 import { LiveJob } from '@/types';
+import useCategoryStore from '@/store/categoryStore';
 export { LiveJob };
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
@@ -11,11 +12,8 @@ const WS_BASE = BASE_URL
     .replace(/^https/, 'wss')
     .replace(/^http/, 'ws');
 
-
-
+// Only the messages the server currently sends
 type WSMessage =
-    | { type: 'job_list'; jobs: LiveJob[] }
-    | { type: 'no_jobs' }
     | {
         type: 'task_created';
         task: {
@@ -27,10 +25,9 @@ type WSMessage =
             location_id: number;
             created_at?: string;
             customer_name?: string;
+            attachments?: any[];
         };
     }
-    | { type: 'bid_accepted'; task_id: number; bid_amount: number }
-    | { type: 'bid_rejected'; task_id: number }
     | { type: 'ping' };
 
 export type WSStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
@@ -38,8 +35,6 @@ export type WSStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecti
 interface UseProWebSocketOptions {
     userId: number | undefined;
     isOnline: boolean;
-    onBidAccepted?: (taskId: number, bidAmount: number) => void;
-    onBidRejected?: (taskId: number) => void;
 }
 
 interface UseProWebSocketResult {
@@ -52,24 +47,17 @@ interface UseProWebSocketResult {
 const MAX_RETRY_DELAY_MS = 30_000;
 const INITIAL_RETRY_DELAY_MS = 1_000;
 
+
+
 export function useProWebSocket({
     userId,
     isOnline,
-    onBidAccepted,
-    onBidRejected,
 }: UseProWebSocketOptions): UseProWebSocketResult {
     const [jobs, setJobs] = useState<LiveJob[]>([]);
     const [wsStatus, setWsStatus] = useState<WSStatus>('disconnected');
     const [hasNoJobs, setHasNoJobs] = useState(false);
 
-    const onBidAcceptedRef = useRef(onBidAccepted);
-    const onBidRejectedRef = useRef(onBidRejected);
-
-    // Sync refs with latest callbacks on every render
-    useEffect(() => {
-        onBidAcceptedRef.current = onBidAccepted;
-        onBidRejectedRef.current = onBidRejected;
-    }, [onBidAccepted, onBidRejected]);
+    const { ensureCategories, getCategoryById, getStyleById } = useCategoryStore();
 
     const wsRef = useRef<WebSocket | null>(null);
     const retryDelayRef = useRef(INITIAL_RETRY_DELAY_MS);
@@ -110,40 +98,43 @@ export function useProWebSocket({
             if (!isMountedRef.current) return;
             console.log('[useProWebSocket] Connected');
             setWsStatus('connected');
-            retryDelayRef.current = INITIAL_RETRY_DELAY_MS; // reset backoff
+            retryDelayRef.current = INITIAL_RETRY_DELAY_MS;
+            // Ensure categories are loaded so we can map category_id → name/style
+            ensureCategories();
         };
 
         ws.onmessage = (event) => {
             if (!isMountedRef.current) return;
             try {
                 const msg: WSMessage = JSON.parse(event.data);
-                console.log('[Message Recieved]', msg)
-                if (msg.type === 'job_list') {
-                    setJobs(msg.jobs);
-                    setHasNoJobs(msg.jobs.length === 0);
-                } else if (msg.type === 'no_jobs') {
-                    setJobs([]);
-                    setHasNoJobs(true);
-                } else if (msg.type === 'task_created' && msg.task) {
+                console.log('[useProWebSocket] Message received:', msg.type);
+
+                if (msg.type === 'task_created' && msg.task) {
                     const t = msg.task;
+                    const cat = getCategoryById(t.category_id);
+                    const { icon: catIcon, color: catColor } = getStyleById(t.category_id);
+
                     const newJob: LiveJob = {
                         id: t.id,
                         title: t.subject || 'New Task',
                         description: t.body || '',
-                        category: t.category_id === 2 ? 'AC Service' : t.category_id === 3 ? 'Plumber' : 'Electrician',
+                        category: cat?.name ?? `Category ${t.category_id}`,
+                        category_icon: catIcon,
+                        category_color: catColor,
                         budget: t.price,
                         location_name: 'Loading location...',
                         customer_name: t.customer_name || 'Customer',
-                        distance_km: 1.5,
                         created_at: t.created_at,
-                        attachments: (t as any).attachments || [],
+                        attachments: t.attachments || [],
                     };
 
                     setJobs((prev) => {
                         if (prev.some((j) => j.id === newJob.id)) return prev;
+                        setHasNoJobs(false);
                         return [newJob, ...prev];
                     });
 
+                    // Resolve location asynchronously
                     if (t.location_id) {
                         getLocationById(t.location_id)
                             .then((loc) => {
@@ -154,15 +145,14 @@ export function useProWebSocket({
                             })
                             .catch(() => {
                                 setJobs((prev) =>
-                                    prev.map((j) => (j.id === t.id ? { ...j, location_name: 'Location not found' } : j))
+                                    prev.map((j) =>
+                                        j.id === t.id ? { ...j, location_name: 'Location not found' } : j
+                                    )
                                 );
                             });
                     }
-                } else if (msg.type === 'bid_accepted') {
-                    onBidAcceptedRef.current?.(msg.task_id, msg.bid_amount);
-                } else if (msg.type === 'bid_rejected') {
-                    onBidRejectedRef.current?.(msg.task_id);
                 }
+                // 'ping' → no-op (heartbeat keepalive)
             } catch (e) {
                 console.warn('[useProWebSocket] Failed to parse message:', e);
             }
@@ -193,7 +183,7 @@ export function useProWebSocket({
         };
     }, [userId]);
 
-    // Connect / disconnect when isOnline changes
+    // Connect / disconnect when isOnline or userId changes
     useEffect(() => {
         shouldConnectRef.current = isOnline && !!userId;
 

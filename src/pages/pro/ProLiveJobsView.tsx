@@ -10,7 +10,6 @@ import {
     Switch,
     Animated,
     Dimensions,
-    Alert,
     ToastAndroid,
     Platform,
 } from 'react-native';
@@ -170,16 +169,8 @@ export default function ProLiveJobsView() {
     const { jobs: wsJobs, wsStatus, hasNoJobs, refresh: wsRefresh } = useProWebSocket({
         userId: user?.id,
         isOnline,
-        onBidAccepted: (taskId, amount) => {
-            setSheetVisible(false);
-            setTimeout(() => {
-                Alert.alert('Job Accepted! 🎉', `Your bid of Rs.${amount.toLocaleString()} was accepted. Navigate to the active task.`);
-            }, 300);
-        },
-        onBidRejected: () => {
-            // Bid buttons re-enable automatically (countdown finishes)
-        },
     });
+
 
     // Use mock jobs if WS not connected OR as demo fallback
     const displayJobs: LiveJob[] = (wsJobs.length > 0)

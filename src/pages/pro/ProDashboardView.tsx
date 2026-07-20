@@ -33,10 +33,10 @@ const CHART_DATA = [
 const MAX_CHART_VALUE = Math.max(...CHART_DATA.map((d) => d.value));
 
 const RECENT_JOBS = [
-    { id: '1', title: 'AC repair service', address: 'Phase 2, Industrial Area', amount: 'Rs 8,500', icon: 'thermometer', color: '#F97316' },
-    { id: '2', title: 'Appliance Repair', address: 'Model Town, Phase 2', amount: 'Rs 6,000', icon: 'construct', color: '#3B82F6' },
-    { id: '3', title: 'Home Cleaning', address: 'Green Enclave, Phase 1', amount: 'Rs 4,200', icon: 'water', color: '#10B981' },
-    { id: '4', title: 'Painting Service', address: 'Urban Vistas, Phase 3', amount: 'Rs 10,500', icon: 'brush', color: '#8B5CF6' },
+    { id: '1', title: 'AC repair service',  address: 'Phase 2, Industrial Area',  amount: 'Rs 8,500',  icon: 'snow',     color: '#3B82F6' },
+    { id: '2', title: 'Appliance Repair',   address: 'Model Town, Phase 2',       amount: 'Rs 6,000',  icon: 'flash',    color: '#F97316' },
+    { id: '3', title: 'Home Cleaning',      address: 'Green Enclave, Phase 1',    amount: 'Rs 4,200',  icon: 'sparkles', color: '#EAB308' },
+    { id: '4', title: 'Painting Service',   address: 'Urban Vistas, Phase 3',     amount: 'Rs 10,500', icon: 'brush',    color: '#EC4899' },
 ];
 
 // ─── Subcomponents ────────────────────────────────────────────────────────────
