@@ -72,6 +72,20 @@ export default function EditProfileScreen() {
       return;
     }
 
+    // Check what actually changed
+    const hasTextChanged =
+      firstName.trim() !== (user?.first_name || '') ||
+      lastName.trim() !== (user?.last_name || '') ||
+      email.trim() !== (user?.email || '') ||
+      gender !== (user?.gender || '');
+
+    const hasImageChanged = !!newProfilePicUri;
+
+    if (!hasTextChanged && !hasImageChanged) {
+      Alert.alert('Info', 'No changes were made.');
+      return;
+    }
+
     setIsSaving(true);
     try {
       const updatedFields: any = {
@@ -81,30 +95,29 @@ export default function EditProfileScreen() {
         gender: gender,
       };
 
-      if (user?.id) {
-        console.log('[EditProfile] Submitting updates to backend...');
+      // 1. Only call text update API if text fields changed
+      if (user?.id && hasTextChanged) {
+        console.log('[EditProfile] Text fields changed. Submitting text updates to backend...');
         await updateUserOnBackend(user.id, updatedFields);
       }
 
-      if (newProfilePicUri) {
-        console.log('[EditProfile] Submitting profile picture update to backend...');
+      // 2. Only call image upload API if a new picture was picked
+      if (hasImageChanged) {
+        console.log('[EditProfile] Profile picture changed. Submitting image update to backend...');
         const profilePicResponse = await updateProfilePic(newProfilePicUri);
         console.log('[EditProfile] Profile pic response:', JSON.stringify(profilePicResponse));
         if (profilePicResponse) {
-          // Backend returns the URL under the key "image"
           const resObj = profilePicResponse as any;
           const rawUrl = resObj.image ?? resObj.profile_pic;
           if (rawUrl) {
             const BASE = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '');
             updatedFields.profile_pic = rawUrl.startsWith('http') ? rawUrl : `${BASE}${rawUrl}`;
             console.log('[EditProfile] Storing profile_pic URL:', updatedFields.profile_pic);
-          } else {
-            console.warn('[EditProfile] Backend response had no profile_pic field:', profilePicResponse);
           }
         }
       }
 
-      // Update locally
+      // 3. Update local session in SecureStore
       const updatedUser = {
         ...updatedFields,
         displayName: `${firstName.trim()} ${lastName.trim()}`,

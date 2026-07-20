@@ -174,7 +174,7 @@ export default function ProDashboardView() {
                     />
                     <StatCard
                         label="Avg Rating"
-                        value={(user as any)?.overall_rating ? `${(user as any).overall_rating} ★` : "4.9 ★"}
+                        value={user?.overall_rating != null ? `${Number(user.overall_rating).toFixed(1)} ★` : "5.0 ★"}
                         sub="Recent rating"
                         iconName="star-outline"
                         iconColor="#EAB308"

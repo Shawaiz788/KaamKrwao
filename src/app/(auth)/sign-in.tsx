@@ -94,6 +94,7 @@ export default function SignInScreen() {
                 gender: userDetails.gender,
                 usertype_id: userDetails.usertype_id,
                 location_id: userDetails.location_id,
+                overall_rating: userDetails.overall_rating,
                 profile_pic: profilePicUrl,
                 token: token, // Attach JWT token
                 refreshToken: refreshToken, // Attach JWT refresh token

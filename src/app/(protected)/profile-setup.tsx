@@ -518,6 +518,7 @@ export default function ProfileSetupScreen() {
           gender: createdUser.gender,
           usertype_id: createdUser.usertype_id,
           location_id: createdUser.location_id,
+          overall_rating: createdUser.overall_rating ?? user?.overall_rating,
           token: token, // Attach JWT token
           refreshToken: refreshToken, // Attach JWT refresh token
         };

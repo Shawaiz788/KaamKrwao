@@ -80,8 +80,10 @@ export default function DrawerPanel({
           {/* User Rating Pill */}
           <View style={styles.drawerRatingContainer}>
             <Ionicons name="star" size={13} color="#F59E0B" style={{ marginRight: 4 }} />
-            <Text style={styles.drawerRatingValue}>4.9</Text>
-            <Text style={styles.drawerRatingCount}>• 28 Tasks</Text>
+            <Text style={styles.drawerRatingValue}>
+              {user?.overall_rating != null ? Number(user.overall_rating).toFixed(1) : '0.0'}
+            </Text>
+            <Text style={styles.drawerRatingCount}>• Verified</Text>
           </View>
         </View>
 
