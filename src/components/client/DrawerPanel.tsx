@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,9 +7,11 @@ import {
   Animated,
   Dimensions,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppUser } from '@/types';
+import { getCustomerReviews } from '@/services/user';
 
 const { width } = Dimensions.get('window');
 
@@ -38,6 +40,37 @@ export default function DrawerPanel({
   insets,
   router,
 }: DrawerPanelProps) {
+  const [loadingReviews, setLoadingReviews] = useState(true);
+  const [reviewCount, setReviewCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user?.id || !open) return;
+    let isMounted = true;
+    setLoadingReviews(true);
+
+    getCustomerReviews(user.id)
+      .then((reviews) => {
+        if (isMounted) {
+          setReviewCount(reviews.length);
+        }
+      })
+      .catch((err) => {
+        console.error('[DrawerPanel] Error fetching customer reviews:', err);
+        if (isMounted) {
+          setReviewCount(0);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoadingReviews(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id, open]);
+
   if (!open) return null;
 
   return (
@@ -77,13 +110,21 @@ export default function DrawerPanel({
             <Text style={styles.drawerVerifiedLabel}>Verified User</Text>
           </View>
 
-          {/* User Rating Pill */}
+          {/* User Rating & Reviews Pill */}
           <View style={styles.drawerRatingContainer}>
-            <Ionicons name="star" size={13} color="#F59E0B" style={{ marginRight: 4 }} />
-            <Text style={styles.drawerRatingValue}>
-              {user?.overall_rating != null ? Number(user.overall_rating).toFixed(1) : '0.0'}
-            </Text>
-            <Text style={styles.drawerRatingCount}>• Verified</Text>
+            {loadingReviews ? (
+              <ActivityIndicator size="small" color="#F59E0B" style={{ paddingHorizontal: 12, paddingVertical: 2 }} />
+            ) : (
+              <>
+                <Ionicons name="star" size={13} color="#F59E0B" style={{ marginRight: 4 }} />
+                <Text style={styles.drawerRatingValue}>
+                  {user?.overall_rating != null ? Number(user.overall_rating).toFixed(1) : '0.0'}
+                </Text>
+                <Text style={styles.drawerRatingCount}>
+                  • {reviewCount ?? 0} {reviewCount === 1 ? 'Review' : 'Reviews'}
+                </Text>
+              </>
+            )}
           </View>
         </View>
 

@@ -246,3 +246,22 @@ export const updateProfilePic = async (
         throw new Error(`Failed to parse profile picture update response. Content: ${responseText}`);
     }
 };
+
+// Fetch reviews received by customer from backend
+export const getCustomerReviews = async (userId: number): Promise<any[]> => {
+    console.log(`[user API] Fetching customer reviews for user ID: ${userId}`);
+    const response = await fetchWithAuth(`${API_URL}/app/review/customer/${userId}/`);
+    const responseText = await response.text();
+    console.log('[user API] Get customer reviews status:', response.status);
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch customer reviews. Status: ${response.status}. Response: ${responseText}`);
+    }
+
+    try {
+        const data = JSON.parse(responseText);
+        return Array.isArray(data) ? data : (data.results || data.reviews || []);
+    } catch (e) {
+        throw new Error(`Failed to parse customer reviews response. Content: ${responseText}`);
+    }
+};
