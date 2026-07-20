@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -9,11 +9,17 @@ import {
     Switch,
     StatusBar,
     Image,
+    Alert,
+    ActivityIndicator,
+    ToastAndroid,
+    Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/context/auth';
 import { Colors } from '@/constants/colors';
+import { updateProfilePic } from '@/services/user';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.78;
@@ -45,7 +51,49 @@ export default function ProDrawerPanel({
     onToggleOnline,
 }: ProDrawerPanelProps) {
     const router = useRouter();
-    const { user, logout } = useAuth();
+    const { user, logout, updateUser } = useAuth();
+    const [isUploadingPic, setIsUploadingPic] = useState(false);
+
+    const handlePickImage = async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission Denied', 'Gallery permissions are required to select a profile picture.');
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+        });
+
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+            const selectedUri = result.assets[0].uri;
+            setIsUploadingPic(true);
+            try {
+                console.log('[ProDrawerPanel] Uploading new profile picture...');
+                const profilePicResponse = await updateProfilePic(selectedUri);
+                const resObj = profilePicResponse as any;
+                const rawUrl = resObj?.image ?? resObj?.profile_pic;
+                if (rawUrl) {
+                    const BASE = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '');
+                    const fullUrl = rawUrl.startsWith('http') ? rawUrl : `${BASE}${rawUrl}`;
+                    await updateUser({ profile_pic: fullUrl });
+                    if (Platform.OS === 'android') {
+                        ToastAndroid.show('Profile picture updated!', ToastAndroid.SHORT);
+                    } else {
+                        Alert.alert('Success', 'Profile picture updated successfully!');
+                    }
+                }
+            } catch (err: any) {
+                console.error('[ProDrawerPanel] Error uploading profile picture:', err);
+                Alert.alert('Upload Error', err.message || 'Failed to update profile picture.');
+            } finally {
+                setIsUploadingPic(false);
+            }
+        }
+    };
 
     const slideAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
     const overlayAnim = useRef(new Animated.Value(0)).current;
@@ -130,13 +178,26 @@ export default function ProDrawerPanel({
 
                 {/* User Info */}
                 <View style={styles.userSection}>
-                    {user?.profile_pic ? (
-                        <Image source={{ uri: user.profile_pic }} style={styles.avatarImage} />
-                    ) : (
-                        <View style={styles.avatarCircle}>
-                            <Text style={styles.avatarText}>{initials}</Text>
-                        </View>
-                    )}
+                    <View style={styles.avatarWrapper}>
+                        {user?.profile_pic ? (
+                            <Image source={{ uri: user.profile_pic }} style={styles.avatarImage} />
+                        ) : (
+                            <View style={styles.avatarCircle}>
+                                <Text style={styles.avatarText}>{initials}</Text>
+                            </View>
+                        )}
+                        <Pressable
+                            style={styles.editAvatarBtn}
+                            onPress={handlePickImage}
+                            disabled={isUploadingPic}
+                        >
+                            {isUploadingPic ? (
+                                <ActivityIndicator size="small" color="#FFFFFF" />
+                            ) : (
+                                <Ionicons name="camera" size={11} color="#FFFFFF" />
+                            )}
+                        </Pressable>
+                    </View>
                     <View style={styles.userInfo}>
                         <Text style={styles.userName} numberOfLines={1}>
                             {user?.displayName || 'Professional'}
@@ -272,6 +333,9 @@ const styles = StyleSheet.create({
         paddingVertical: 20,
         gap: 14,
     },
+    avatarWrapper: {
+        position: 'relative',
+    },
     avatarCircle: {
         width: 48,
         height: 48,
@@ -284,6 +348,19 @@ const styles = StyleSheet.create({
         width: 48,
         height: 48,
         borderRadius: 24,
+    },
+    editAvatarBtn: {
+        position: 'absolute',
+        bottom: -2,
+        right: -2,
+        backgroundColor: Colors.pro.accent,
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1.5,
+        borderColor: '#0F2318',
     },
     avatarText: {
         color: Colors.white,

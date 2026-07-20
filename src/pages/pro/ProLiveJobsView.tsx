@@ -12,6 +12,7 @@ import {
     Dimensions,
     ToastAndroid,
     Platform,
+    Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -222,10 +223,14 @@ export default function ProLiveJobsView() {
                         )}
                     </View>
                 </View>
-                <Pressable style={styles.avatarBtn}>
-                    <View style={styles.avatarCircle}>
-                        <Text style={styles.avatarText}>{initials}</Text>
-                    </View>
+                <Pressable style={styles.avatarBtn} onPress={() => setDrawerOpen(true)}>
+                    {user?.profile_pic ? (
+                        <Image source={{ uri: user.profile_pic }} style={styles.avatarImage} />
+                    ) : (
+                        <View style={styles.avatarCircle}>
+                            <Text style={styles.avatarText}>{initials}</Text>
+                        </View>
+                    )}
                 </Pressable>
             </View>
 
@@ -430,6 +435,11 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.pro.accentDim,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    avatarImage: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
     },
     avatarText: {
         color: Colors.white,

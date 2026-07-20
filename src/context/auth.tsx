@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const loadSession = async () => {
         try {
             const sessionStr = await SecureStore.getItemAsync('user_session');
-            console.log('[SecureStore] Loaded user session string:', sessionStr);
+            //console.log('[SecureStore] Loaded user session string:', sessionStr);
             if (sessionStr) {
                 const sessionUser = JSON.parse(sessionStr);
                 setUser(sessionUser);
@@ -51,19 +51,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (appUser.token) {
                 await SecureStore.setItemAsync('user_token', appUser.token);
                 await SecureStore.setItemAsync('user_token_saved_at', Date.now().toString());
-                console.log('[SecureStore] Saved user JWT access token and timestamp');
+                //console.log('[SecureStore] Saved user JWT access token and timestamp');
             }
             // Save the JWT refresh token separately if present
             if (appUser.refreshToken) {
                 await SecureStore.setItemAsync('user_refresh_token', appUser.refreshToken);
-                console.log('[SecureStore] Saved user JWT refresh token');
+                //console.log('[SecureStore] Saved user JWT refresh token');
             }
             if (password) {
                 await SecureStore.setItemAsync('user_password', password);
-                console.log('[SecureStore] Saved user password to SecureStore');
+                // console.log('[SecureStore] Saved user password to SecureStore');
             }
             await SecureStore.setItemAsync('user_session', JSON.stringify(appUser, null, 4));
-            console.log('[SecureStore] Saved user session:', appUser);
+            //console.log('[SecureStore] Saved user session:', appUser);
             setUser(appUser);
         } catch (e) {
             console.error('Error saving user session:', e);
@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await SecureStore.deleteItemAsync('user_refresh_token');
             await SecureStore.deleteItemAsync('user_token_saved_at');
             await SecureStore.deleteItemAsync('user_password');
-            console.log('[SecureStore] Deleted user session, tokens, password, and timestamp from device');
+            //console.log('[SecureStore] Deleted user session, tokens, password, and timestamp from device');
             setUser(null);
         } catch (e) {
             console.error('Error clearing user session:', e);
