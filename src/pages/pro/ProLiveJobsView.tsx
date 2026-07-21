@@ -20,11 +20,21 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/auth';
 import { Colors } from '@/constants/colors';
 import { useProWebSocket, LiveJob } from '@/hooks/useProWebSocket';
-import { sendQuickBidViaWebSocket } from '@/hooks/useBiddingWebSocket';
+import { sendQuickBidViaWebSocket, useBiddingWebSocket } from '@/hooks/useBiddingWebSocket';
 import JobCard from '@/components/pro/JobCard';
 import JobDetailBottomSheet from '@/components/pro/JobDetailBottomSheet';
 import ProDrawerPanel from '@/components/pro/ProDrawerPanel';
 import { useActiveBids } from '@/hooks/useActiveBids';
+
+function ActiveBidListener({ jobId, userId }: { jobId: number; userId: number | undefined }) {
+    useBiddingWebSocket({
+        taskId: jobId,
+        userId,
+        isCustomer: false,
+        enabled: Boolean(jobId && userId),
+    });
+    return null;
+}
 
 const { width } = Dimensions.get('window');
 
@@ -174,7 +184,7 @@ export default function ProLiveJobsView() {
         isOnline,
     });
 
-    const { placeBid, getActiveBid } = useActiveBids(10);
+    const { placeBid, getActiveBid, activeJobIds } = useActiveBids(10);
 
     // Use mock jobs if WS not connected OR as demo fallback
     const displayJobs: LiveJob[] = (wsJobs.length > 0)
@@ -327,6 +337,10 @@ export default function ProLiveJobsView() {
                 isOnline={isOnline}
                 onToggleOnline={() => setIsOnline((v) => !v)}
             />
+            {/* Active Bids Socket Listeners (for quick bids feedback) */}
+            {activeJobIds.map((id) => (
+                <ActiveBidListener key={id} jobId={id} userId={user?.id} />
+            ))}
         </View>
     );
 }

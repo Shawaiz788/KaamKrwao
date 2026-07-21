@@ -69,9 +69,9 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
     message: b.estimated_hours ? `Estimated duration: ${b.estimated_hours} hours` : 'Ready to perform task',
   }));
 
-  const handleAcceptBid = (bidId: string) => {
-    sendWsAcceptBid(bidId);
-    contextAcceptBid(bidId);
+  const handleAcceptBid = (bid: Bid) => {
+    sendWsAcceptBid(bid.id);
+    contextAcceptBid(bid.id, bid);
   };
 
   const [chatVisible, setChatVisible] = useState(false);
@@ -236,7 +236,7 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
                     </Pressable>
                     <Pressable
                       style={[styles.bidBtn, styles.acceptBtn]}
-                      onPress={() => handleAcceptBid(bid.id)}
+                      onPress={() => handleAcceptBid(bid)}
                     >
                       <Text style={styles.acceptBtnText}>Accept Offer</Text>
                     </Pressable>

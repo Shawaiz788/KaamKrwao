@@ -73,8 +73,11 @@ export function useActiveBids(durationSeconds: number = 10) {
         [bids]
     );
 
+    const activeJobIds = Object.keys(bids).map(Number);
+
     return {
         placeBid,
         getActiveBid,
+        activeJobIds,
     };
 }

@@ -23,7 +23,7 @@ interface PostJobContextType {
     attachmentUris?: string[] | null
   ) => void;
   cancelTask: () => void;
-  acceptBid: (bidId: string) => void;
+  acceptBid: (bidId: string, bidObj?: Bid) => void;
   completeTask: () => void;
   sendActiveChatMessage: (text: string) => void;
   clearHistory: () => void;
@@ -200,9 +200,19 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
     if (chatReplyTimer.current) clearTimeout(chatReplyTimer.current);
   };
 
-  const acceptBid = (bidId: string) => {
-    const chosenBid = bids.find((b) => b.id === bidId);
-    if (!chosenBid || !activeTask) return;
+  const acceptBid = (bidId: string, bidObj?: Bid) => {
+    if (!activeTask) return;
+
+    const chosenBid: Bid = bidObj || bids.find((b) => b.id === bidId) || {
+      id: bidId,
+      name: 'Professional Pro',
+      avatar: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
+      rating: 4.8,
+      reviewsCount: 45,
+      price: activeTask.budget,
+      timeEstimate: '15 min',
+      message: 'Bid accepted',
+    };
 
     setActiveTask((prev) => {
       if (!prev) return null;
