@@ -167,48 +167,6 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (biddingTimer.current) clearTimeout(biddingTimer.current);
-
-    // After 3 seconds, transition status to 'bidding' and load mock bids
-    biddingTimer.current = setTimeout(() => {
-      setActiveTask((prev) => {
-        if (!prev || prev.id !== newTask.id) return prev;
-        return { ...prev, status: 'bidding' as const };
-      });
-
-      const mockBids: Bid[] = [
-        {
-          id: 'bid_1',
-          name: 'Zahid Khan Electrician',
-          avatar: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
-          rating: 4.8,
-          reviewsCount: 124,
-          price: budget,
-          timeEstimate: '10 min',
-          message: 'Ready to start. I am currently in DHA Phase 5.',
-        },
-        {
-          id: 'bid_2',
-          name: 'Sajid & Sons plumbing',
-          avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
-          rating: 4.6,
-          reviewsCount: 65,
-          price: budget + 150,
-          timeEstimate: '8 min',
-          message: 'Can reach quickly. Standard rates apply.',
-        },
-        {
-          id: 'bid_3',
-          name: 'M. Ali AC Specialist',
-          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-          rating: 4.9,
-          reviewsCount: 231,
-          price: budget - 100,
-          timeEstimate: '15 min',
-          message: 'Expert service. Let me fix this for you.',
-        },
-      ];
-      setBids(mockBids);
-    }, 4000);
   };
 
   const cancelTask = () => {

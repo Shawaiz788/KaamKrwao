@@ -382,47 +382,6 @@ export default function HomeView({ userName }: HomeViewProps) {
     return () => unsubscribe();
   }, []);
 
-  // Ensure categories are loaded (no-op after first successful fetch this session)
-  useEffect(() => {
-    ensureCategories().then(() => {
-      const { categories: cats } = useCategoryStore.getState();
-      if (cats.length > 0 && !activeCategory) {
-        setActiveCategory(cats[0].name);
-      }
-    });
-  }, []);
-
-  // Fetch payment preferences from Backend API
-  useEffect(() => {
-    let isMounted = true;
-    const fetchPaymentPrefs = async () => {
-      try {
-        setLoadingPaymentPrefs(true);
-        const data = await getPaymentPreferencesFromBackend();
-        if (isMounted) {
-          setPaymentPreferences(data);
-          if (data.length > 0 && selectedPaymentPrefId === null) {
-            setSelectedPaymentPrefId(data[0].id);
-          }
-        }
-      } catch (err) {
-        console.error('[HomeView] Error loading payment preferences from API:', err);
-        if (isMounted) {
-          setPaymentPreferences([]);
-        }
-      } finally {
-        if (isMounted) {
-          setLoadingPaymentPrefs(false);
-        }
-      }
-    };
-
-    fetchPaymentPrefs();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
   // Navigation / Drawer / History Modals State
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [viewActiveTaskScreen, setViewActiveTaskScreen] = useState(false);
@@ -430,88 +389,119 @@ export default function HomeView({ userName }: HomeViewProps) {
   const drawerAnim = useRef(new Animated.Value(-width * 0.75)).current;
   const webViewRef = useRef<WebView | null>(null);
 
-  // Sync provider selected category if any
+  // Consolidated Home Data Bootstrapper (Categories, Payment Prefs, Location)
   useEffect(() => {
-    if (selectedCategory) {
-      setActiveCategory(selectedCategory);
-      closePostJob(); // Clear out selected category once read
-    }
-  }, [selectedCategory]);
+    let isMounted = true;
 
-  // Request Location permissions and get coordinates
-  useEffect(() => {
-    (async () => {
-      try {
-        // 1. Try to fetch user's saved location coordinates from backend first
-        if (user && user.location_id) {
-          try {
-            console.log(`[HomeView] Fetching user saved location profile for ID: ${user.location_id}`);
-            const savedLoc = await getLocationById(user.location_id);
-            if (savedLoc && savedLoc.latitude !== undefined && savedLoc.longitude !== undefined) {
-              const savedCoords = {
-                latitude: Number(savedLoc.latitude),
-                longitude: Number(savedLoc.longitude),
-              };
-              console.log('[HomeView] Successfully loaded saved location coordinates:', savedCoords);
-              setMapCoords(savedCoords);
-              setInitialCoords(savedCoords);
-              if (savedLoc.formatted_address) {
-                setAddress(savedLoc.formatted_address);
-              } else {
-                reverseGeocode(savedCoords.latitude, savedCoords.longitude);
-              }
-              setLoadingLocation(false);
-              return; // Initialized successfully with user's saved location
-            }
-          } catch (locErr) {
-            console.warn('[HomeView] Failed to fetch user saved location profile. Falling back to GPS:', locErr);
-          }
+    const bootstrapHomeData = async () => {
+      setLoadingPaymentPrefs(true);
+      setLoadingLocation(true);
+
+      const [catResult, paymentResult, locResult] = await Promise.allSettled([
+        ensureCategories(),
+        getPaymentPreferencesFromBackend(),
+        user && user.location_id ? getLocationById(user.location_id) : Promise.resolve(null),
+      ]);
+
+      if (!isMounted) return;
+
+      // 1. Process Categories
+      if (catResult.status === 'fulfilled') {
+        const { categories: cats } = useCategoryStore.getState();
+        if (cats.length > 0 && !activeCategory) {
+          setActiveCategory(cats[0].name);
         }
+      } else {
+        console.warn('[HomeView] Categories fetch failed:', catResult.reason);
+      }
 
-        // 2. Fallback to GPS lookup if saved location is unavailable
-        let { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
+      // 2. Process Payment Preferences
+      if (paymentResult.status === 'fulfilled') {
+        const data = paymentResult.value || [];
+        setPaymentPreferences(data);
+        if (data.length > 0 && selectedPaymentPrefId === null) {
+          setSelectedPaymentPrefId(data[0].id);
+        }
+      } else {
+        console.warn('[HomeView] Payment preferences fetch failed:', paymentResult.reason);
+        setPaymentPreferences([]);
+      }
+      setLoadingPaymentPrefs(false);
+
+      // 3. Process Saved Location
+      let locationLoaded = false;
+      if (locResult.status === 'fulfilled' && locResult.value) {
+        const savedLoc = locResult.value;
+        if (savedLoc && savedLoc.latitude !== undefined && savedLoc.longitude !== undefined) {
+          const savedCoords = {
+            latitude: Number(savedLoc.latitude),
+            longitude: Number(savedLoc.longitude),
+          };
+          console.log('[HomeView] Successfully loaded saved location coordinates:', savedCoords);
+          setMapCoords(savedCoords);
+          setInitialCoords(savedCoords);
+          if (savedLoc.formatted_address) {
+            setAddress(savedLoc.formatted_address);
+          } else {
+            reverseGeocode(savedCoords.latitude, savedCoords.longitude);
+          }
+          setLoadingLocation(false);
+          locationLoaded = true;
+        }
+      }
+
+      // 4. GPS Fallback if saved location was unavailable/failed
+      if (!locationLoaded) {
+        try {
+          let { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') {
+            const defaultCoords = { latitude: 31.5204, longitude: 74.3587 };
+            setMapCoords(defaultCoords);
+            setInitialCoords(defaultCoords);
+            setAddress('Lahore, Pakistan (Default)');
+            setLoadingLocation(false);
+            return;
+          }
+
+          let loc = null;
+          try {
+            loc = await Promise.race([
+              Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+              new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2500)),
+            ]);
+          } catch (e) {
+            console.log('[HomeView] Startup GPS request timed out or failed. Fetching cached position as fallback...');
+            loc = await Location.getLastKnownPositionAsync();
+          }
+
+          if (!loc) {
+            throw new Error('Could not retrieve any coordinate reference.');
+          }
+
+          const newCoords = {
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          };
+          setMapCoords(newCoords);
+          setInitialCoords(newCoords);
+          reverseGeocode(loc.coords.latitude, loc.coords.longitude);
+        } catch (err) {
+          console.error('[HomeView] Error fetching location fallback:', err);
           const defaultCoords = { latitude: 31.5204, longitude: 74.3587 };
           setMapCoords(defaultCoords);
           setInitialCoords(defaultCoords);
           setAddress('Lahore, Pakistan (Default)');
+        } finally {
           setLoadingLocation(false);
-          return;
         }
-
-        // Get last known location instantly, otherwise do a quick balanced fetch (<1s)
-        let loc = null;
-        try {
-          loc = await Promise.race([
-            Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-            new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2500))
-          ]);
-        } catch (e) {
-          console.log('[HomeView] Startup GPS request timed out or failed. Fetching cached position as fallback...');
-          loc = await Location.getLastKnownPositionAsync();
-        }
-
-        if (!loc) {
-          throw new Error('Could not retrieve any coordinate reference.');
-        }
-
-        const newCoords = {
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        };
-        setMapCoords(newCoords);
-        setInitialCoords(newCoords);
-        reverseGeocode(loc.coords.latitude, loc.coords.longitude);
-      } catch (err) {
-        console.error('Error fetching location: ', err);
-        const defaultCoords = { latitude: 31.5204, longitude: 74.3587 };
-        setMapCoords(defaultCoords);
-        setInitialCoords(defaultCoords);
-        setAddress('Lahore, Pakistan (Default)');
-      } finally {
-        setLoadingLocation(false);
       }
-    })();
+    };
+
+    bootstrapHomeData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const reCenterMap = async () => {

@@ -35,7 +35,6 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
   const { user } = useAuth();
   const {
     activeTask,
-    bids: mockBids,
     activeChatMessages,
     acceptBid: contextAcceptBid,
     cancelTask,
@@ -59,18 +58,16 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
     token: user?.token,
   });
 
-  const bids: Bid[] = wsBids.length > 0
-    ? wsBids.map((b) => ({
-        id: String(b.id),
-        name: b.user_name || `Professional #${b.user_id}`,
-        avatar: b.user_avatar || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
-        rating: b.user_rating || 4.8,
-        reviewsCount: 45,
-        price: b.price,
-        timeEstimate: b.estimated_hours ? `${b.estimated_hours * 60} min` : '15 min',
-        message: b.estimated_hours ? `Estimated duration: ${b.estimated_hours} hours` : 'Ready to perform task',
-      }))
-    : mockBids;
+  const bids: Bid[] = wsBids.map((b) => ({
+    id: String(b.id),
+    name: b.user_name || `Professional #${b.user_id}`,
+    avatar: b.user_avatar || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
+    rating: b.user_rating || 4.8,
+    reviewsCount: 45,
+    price: b.price,
+    timeEstimate: b.estimated_hours ? `${b.estimated_hours * 60} min` : '15 min',
+    message: b.estimated_hours ? `Estimated duration: ${b.estimated_hours} hours` : 'Ready to perform task',
+  }));
 
   const handleAcceptBid = (bidId: string) => {
     sendWsAcceptBid(bidId);
