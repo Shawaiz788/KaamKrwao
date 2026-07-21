@@ -27,8 +27,8 @@ import GpsCoordinatesField from '@/components/profile-setup/GpsCoordinatesField'
 import GenderSelector from '@/components/profile-setup/GenderSelector';
 import RoleSelector from '@/components/profile-setup/RoleSelector';
 import MapPickerModal from '@/components/profile-setup/MapPickerModal';
-import { useProfileSubmit } from '@/components/profile-setup/useProfileSubmit';
-import styles from '@/components/profile-setup/profileSetupStyles';
+import { useProfileSubmit } from '@/hooks/useProfileSubmit';
+import styles from '@/styles/profileSetup.styles';
 
 type Role = 'client' | 'provider';
 
