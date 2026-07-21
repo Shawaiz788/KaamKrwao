@@ -20,6 +20,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/auth';
 import { Colors } from '@/constants/colors';
 import { useProWebSocket, LiveJob } from '@/hooks/useProWebSocket';
+import { sendQuickBidViaWebSocket } from '@/hooks/useBiddingWebSocket';
 import JobCard from '@/components/pro/JobCard';
 import JobDetailBottomSheet from '@/components/pro/JobDetailBottomSheet';
 import ProDrawerPanel from '@/components/pro/ProDrawerPanel';
@@ -189,9 +190,13 @@ export default function ProLiveJobsView() {
     }, [wsRefresh]);
 
     const handleQuickBid = (job: LiveJob, amount: number) => {
-        // WS integration: send bid message
         console.log(`[ProLiveJobsView] Quick bid: job=${job.id}, amount=${amount}`);
         placeBid(job.id, amount);
+        if (user?.id && job.id) {
+            sendQuickBidViaWebSocket(job.id, user.id, amount, 1).catch((err) => {
+                console.warn('[ProLiveJobsView] WS quick bid dispatch error:', err);
+            });
+        }
     };
 
     const handleOpenJobDetail = (job: LiveJob) => {

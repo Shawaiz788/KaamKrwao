@@ -48,6 +48,46 @@ export interface UseBiddingWebSocketResult {
     closeSocket: () => void;
 }
 
+export async function sendQuickBidViaWebSocket(
+    taskId: number | string,
+    userId: number | string,
+    price: number,
+    estimatedHours: number = 1
+): Promise<void> {
+    return new Promise((resolve, reject) => {
+        try {
+            const url = `${WS_BASE}/ws/bidding/${taskId}/`;
+            console.log('[sendQuickBidViaWebSocket] Opening quick socket connection to:', url);
+            const ws = new WebSocket(url);
+
+            ws.onopen = () => {
+                const payload = {
+                    type: 'place_bid',
+                    user_id: userId,
+                    price,
+                    estimated_hours: estimatedHours,
+                };
+                console.log('[sendQuickBidViaWebSocket] Sending payload:', payload);
+                ws.send(JSON.stringify(payload));
+
+                // Close socket cleanly after brief delay to allow server to receive message
+                setTimeout(() => {
+                    ws.close(1000);
+                    resolve();
+                }, 500);
+            };
+
+            ws.onerror = (err) => {
+                console.error('[sendQuickBidViaWebSocket] Quick bid socket error:', err);
+                try { ws.close(); } catch (e) { }
+                reject(err);
+            };
+        } catch (e) {
+            reject(e);
+        }
+    });
+}
+
 const MAX_RETRY_DELAY_MS = 30_000;
 const INITIAL_RETRY_DELAY_MS = 1_000;
 
