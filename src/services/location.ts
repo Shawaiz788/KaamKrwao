@@ -59,6 +59,9 @@ export interface LocationChainInput {
   countryName: string;
   cityName: string;
   areaName: string;
+  /** Pre-resolved IDs from the UI state. When provided, all API lookups are skipped. */
+  resolvedCityId?: number;
+  resolvedAreaId?: number;
   houseNumber: string;
   streetNumber: string;
   latitude: number;
@@ -71,10 +74,46 @@ export const getOrCreateLocationChain = async (input: LocationChainInput): Promi
   const { countryName, cityName, areaName, houseNumber, streetNumber, latitude, longitude, zipCode, formatted_address } = input;
   console.log('[LocationChain] Starting resolution for:', input);
 
+  // ── Fast path: city and area IDs already known from the UI ──────────────────
+  if (input.resolvedCityId && input.resolvedAreaId) {
+    console.log('[LocationChain] Using pre-resolved IDs — skipping API lookups.');
+    console.log(`[LocationChain] cityId=${input.resolvedCityId}, areaId=${input.resolvedAreaId}`);
+
+    const cleanLat = latitude ? Number(latitude.toFixed(6)) : undefined;
+    const cleanLng = longitude ? Number(longitude.toFixed(6)) : undefined;
+
+    const locationPayload: UserLocation = {
+      city_id: input.resolvedCityId,
+      area_id: input.resolvedAreaId,
+      house_number: houseNumber ? Number(houseNumber) : undefined,
+      street_number: streetNumber,
+      latitude: cleanLat,
+      longitude: cleanLng,
+      zip_code: zipCode ? Number(zipCode) : undefined,
+      formatted_address,
+    };
+
+    console.log('[LocationChain] Fast-path location payload:', locationPayload);
+    return await createLocation(locationPayload);
+  }
+
+  // ── Slow path: resolve IDs from API ─────────────────────────────────────────
+  // Fetch all reference data in parallel — they are independent of each other
+  const [countries, cities, areas] = await Promise.all([
+    getCountries(),
+    getCities(),
+    getAreas(),
+  ]);
+
+  const safeCountries = Array.isArray(countries) ? countries : [];
+  const safeCities = Array.isArray(cities) ? cities : [];
+  const safeAreas = Array.isArray(areas) ? areas : [];
+
+  console.log(`[LocationChain] Loaded ${safeCountries.length} countries, ${safeCities.length} cities, ${safeAreas.length} areas`);
+
   // 1. Resolve Country
   let countryId: number;
-  const countries = await getCountries();
-  const existingCountry = countries.find(
+  const existingCountry = safeCountries.find(
     (c) => c.name.toLowerCase() === countryName.toLowerCase()
   );
   if (existingCountry) {
@@ -89,12 +128,17 @@ export const getOrCreateLocationChain = async (input: LocationChainInput): Promi
 
   // 2. Resolve City
   let cityId: number;
-  const cities = await getCities();
-  const existingCity = cities.find(
+  const existingCity = safeCities.find(
     (c: any) => {
       const matchName = c.name.toLowerCase() === cityName.toLowerCase();
       if (!matchName) return false;
-      const cId = typeof c.country === 'object' ? c.country?.id : c.country;
+      // c.country can be a plain number ID or an object
+      const cId =
+        c.country === null || c.country === undefined
+          ? null
+          : typeof c.country === 'object'
+          ? c.country?.id
+          : c.country; // plain number
       return !cId || cId === countryId;
     }
   );
@@ -110,12 +154,17 @@ export const getOrCreateLocationChain = async (input: LocationChainInput): Promi
 
   // 3. Resolve Area
   let areaId: number;
-  const areas = await getAreas();
-  const existingArea = areas.find(
+  const existingArea = safeAreas.find(
     (a: any) => {
       const matchName = a.name.toLowerCase() === areaName.toLowerCase();
       if (!matchName) return false;
-      const cId = typeof a.city === 'object' ? a.city?.id : a.city;
+      // a.city can be a plain number ID or an object
+      const cId =
+        a.city === null || a.city === undefined
+          ? null
+          : typeof a.city === 'object'
+          ? a.city?.id
+          : a.city; // plain number
       return !cId || cId === cityId;
     }
   );

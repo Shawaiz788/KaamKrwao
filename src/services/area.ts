@@ -8,14 +8,14 @@ export const getAreas = async (): Promise<Area[]> => {
     console.log('[area API] Fetching areas from API...');
     const response = await fetchWithTimeout(`${API_URL}/app/area/`);
 
-    // 1. Await the JSON promise into a variable
     const data = await response.json();
+    console.log('[area API] Raw response:', JSON.stringify(data)?.slice(0, 200));
 
-    // 2. Log the actual data
-    console.log('[area API] response', data);
-
-    // 3. Return the data variable
-    return data;
+    // Handle both paginated { results: [] } and plain array responses
+    if (data && !Array.isArray(data) && Array.isArray(data.results)) {
+        return data.results;
+    }
+    return Array.isArray(data) ? data : [];
 };
 
 

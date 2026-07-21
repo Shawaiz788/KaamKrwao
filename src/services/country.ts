@@ -5,7 +5,12 @@ import { Country } from '@/types';
 
 export const getCountries = async (): Promise<Country[]> => {
     const response = await fetchWithTimeout(`${API_URL}/app/country/`);
-    return response.json();
+    const data = await response.json();
+    // Handle both paginated { results: [] } and plain array responses
+    if (data && !Array.isArray(data) && Array.isArray(data.results)) {
+        return data.results;
+    }
+    return Array.isArray(data) ? data : [];
 };
 
 export const createCountry = async (name: string): Promise<Country> => {
