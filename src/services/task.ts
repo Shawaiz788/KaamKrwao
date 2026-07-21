@@ -237,16 +237,70 @@ export const updateTaskStatusOnBackend = async (
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  const response = await fetchWithAuth(`${API_URL}/app/task/${taskId}/`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify({ status_id: statusId }),
-  });
+
+  const url = `${API_URL}/app/task/${taskId}/`;
+  let response: Response;
+  try {
+    response = await fetchWithAuth(url, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ status_id: statusId }),
+    });
+  } catch (authErr) {
+    console.warn(`[task API] fetchWithAuth failed for PATCH task ${taskId}, trying fallback:`, authErr);
+    response = await fetchWithTimeout(url, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ status_id: statusId }),
+    });
+  }
+
   const responseText = await response.text();
   console.log('[task API] Update task status response status:', response.status);
 
   if (!response.ok) {
     throw new Error(`Failed to update task status on backend. Status: ${response.status}. Response: ${responseText}`);
+  }
+
+  try {
+    return JSON.parse(responseText);
+  } catch (e) {
+    return { message: responseText };
+  }
+};
+
+export const softDeleteTaskOnBackend = async (
+  taskId: number,
+  token?: string
+): Promise<any> => {
+  console.log(`[task API] Soft-deleting task ${taskId}`);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const url = `${API_URL}/app/task/${taskId}/`;
+  let response: Response;
+  try {
+    response = await fetchWithAuth(url, {
+      method: 'DELETE',
+      headers,
+    });
+  } catch (authErr) {
+    console.warn(`[task API] fetchWithAuth failed for DELETE task ${taskId}, trying fallback:`, authErr);
+    response = await fetchWithTimeout(url, {
+      method: 'DELETE',
+      headers,
+    });
+  }
+
+  const responseText = await response.text();
+  console.log('[task API] Soft-delete task response status:', response.status);
+
+  if (!response.ok) {
+    throw new Error(`Failed to soft-delete task on backend. Status: ${response.status}. Response: ${responseText}`);
   }
 
   try {

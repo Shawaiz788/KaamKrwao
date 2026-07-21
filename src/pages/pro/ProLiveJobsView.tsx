@@ -200,6 +200,7 @@ export default function ProLiveJobsView() {
     const [assignedJob, setAssignedJob] = useState<LiveJob | null>(null);
     const [activeModalJob, setActiveModalJob] = useState<LiveJob | null>(null);
     const [activeModalVisible, setActiveModalVisible] = useState(false);
+    const [isCancelledJob, setIsCancelledJob] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [useMockData, setUseMockData] = useState(false); // Fallback while WS not configured
 
@@ -207,13 +208,13 @@ export default function ProLiveJobsView() {
         console.log(`[ProLiveJobsView] handleTaskCancelledByCustomer triggered for taskId=${cancelledTaskId}`);
         const targetId = Number(cancelledTaskId);
         if (assignedJob && Number(assignedJob.id) === targetId) {
+            // Show the cancelled summary in the modal, don't just dismiss it
+            setIsCancelledJob(true);
+            setActiveModalJob(assignedJob);
+            setActiveModalVisible(true);
             setAssignedJob(null);
-            if (activeModalJob && Number(activeModalJob.id) === targetId) {
-                setActiveModalJob(null);
-                setActiveModalVisible(false);
-            }
         }
-    }, [assignedJob, activeModalJob]);
+    }, [assignedJob]);
 
     const { jobs: wsJobs, wsStatus, hasNoJobs, refresh: wsRefresh } = useProWebSocket({
         userId: user?.id,
@@ -441,7 +442,11 @@ export default function ProLiveJobsView() {
             <ProActiveTaskModal
                 job={activeModalJob}
                 isVisible={activeModalVisible}
-                onClose={() => setActiveModalVisible(false)}
+                isCancelled={isCancelledJob}
+                onClose={() => {
+                    setActiveModalVisible(false);
+                    setIsCancelledJob(false);
+                }}
                 onCompleteTask={() => setAssignedJob(null)}
             />
         </View>

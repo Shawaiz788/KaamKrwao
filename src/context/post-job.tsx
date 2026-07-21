@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { useAuth } from './auth';
-import { createTaskChain, getStatusesFromBackend, updateTaskStatusOnBackend } from '@/services/task';
+import { createTaskChain, getStatusesFromBackend, updateTaskStatusOnBackend, softDeleteTaskOnBackend } from '@/services/task';
 import useTaskStore from '../store/taskStore';
 import { Bid, Task, ChatMessage } from '@/types';
 export { Bid, Task, ChatMessage };
@@ -180,12 +180,24 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
         (async () => {
           try {
             console.log('[PostJobProvider] Cancelling backend task with ID:', taskId);
-            const statuses = await getStatusesFromBackend(token);
-            const cancelledStatus = statuses.find(s => s.name.toLowerCase() === 'cancelled');
-            const statusId = cancelledStatus ? cancelledStatus.id : 5;
-            
+            let statusId = 5; // Default 'cancelled' status ID
+            try {
+              const statuses = await getStatusesFromBackend(token);
+              const cancelledStatus = statuses.find(s => s.name.toLowerCase() === 'cancelled');
+              if (cancelledStatus) statusId = cancelledStatus.id;
+            } catch {
+              console.log('[PostJobProvider] Using default cancelled status ID (5)');
+            }
+
             await updateTaskStatusOnBackend(taskId, statusId, token);
             console.log('[PostJobProvider] Backend task status updated to Cancelled.');
+
+            try {
+              await softDeleteTaskOnBackend(taskId, token);
+              console.log('[PostJobProvider] Backend task soft-deleted successfully.');
+            } catch (deleteErr) {
+              console.warn('[PostJobProvider] Soft-delete task API call warning:', deleteErr);
+            }
           } catch (err) {
             console.error('[PostJobProvider] Failed to update task status on backend:', err);
           }

@@ -20,6 +20,7 @@ import { LiveJob } from '@/hooks/useProWebSocket';
 interface ProActiveTaskModalProps {
     job: LiveJob | null;
     isVisible: boolean;
+    isCancelled?: boolean;
     onClose: () => void;
     onCompleteTask?: (job: LiveJob) => void;
 }
@@ -35,6 +36,7 @@ function showToast(message: string) {
 export default function ProActiveTaskModal({
     job,
     isVisible,
+    isCancelled = false,
     onClose,
     onCompleteTask,
 }: ProActiveTaskModalProps) {
@@ -85,24 +87,43 @@ export default function ProActiveTaskModal({
                     <Pressable onPress={onClose} style={styles.backBtn} hitSlop={10}>
                         <Ionicons name="close" size={24} color={Colors.white} />
                     </Pressable>
-                    <Text style={styles.headerTitle}>Assigned Job</Text>
-                    <View style={styles.assignedBadge}>
-                        <View style={styles.greenDot} />
-                        <Text style={styles.assignedBadgeText}>ACTIVE</Text>
-                    </View>
+                    <Text style={styles.headerTitle}>{isCancelled ? 'Task Cancelled' : 'Assigned Job'}</Text>
+                    {isCancelled ? (
+                        <View style={styles.cancelledBadge}>
+                            <View style={styles.redDot} />
+                            <Text style={styles.cancelledBadgeText}>CANCELLED</Text>
+                        </View>
+                    ) : (
+                        <View style={styles.assignedBadge}>
+                            <View style={styles.greenDot} />
+                            <Text style={styles.assignedBadgeText}>ACTIVE</Text>
+                        </View>
+                    )}
                 </View>
 
                 <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
-                    {/* Success Alert Banner */}
-                    <View style={styles.alertSuccess}>
-                        <Ionicons name="checkmark-circle" size={26} color="#047857" style={{ marginRight: 10 }} />
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.alertSuccessTitle}>Congratulations! Job Assigned</Text>
-                            <Text style={styles.alertSuccessSub}>
-                                Your bid of Rs. {job.budget.toLocaleString()} was accepted.
-                            </Text>
+                    {/* Alert Banner */}
+                    {isCancelled ? (
+                        <View style={styles.alertCancelled}>
+                            <Ionicons name="close-circle" size={26} color="#EF4444" style={{ marginRight: 10 }} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.alertCancelledTitle}>Task Cancelled by Customer</Text>
+                                <Text style={styles.alertCancelledSub}>
+                                    The customer has cancelled this job request. No further action is required.
+                                </Text>
+                            </View>
                         </View>
-                    </View>
+                    ) : (
+                        <View style={styles.alertSuccess}>
+                            <Ionicons name="checkmark-circle" size={26} color="#047857" style={{ marginRight: 10 }} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.alertSuccessTitle}>Congratulations! Job Assigned</Text>
+                                <Text style={styles.alertSuccessSub}>
+                                    Your bid of Rs. {job.budget.toLocaleString()} was accepted.
+                                </Text>
+                            </View>
+                        </View>
+                    )}
 
                     {/* Customer Profile Card */}
                     <View style={styles.customerCard}>
@@ -137,18 +158,20 @@ export default function ProActiveTaskModal({
                             </View>
                         </View>
 
-                        {/* Direct Contact Buttons */}
-                        <View style={styles.contactButtonsRow}>
-                            <Pressable style={[styles.contactBtn, styles.whatsappBtn]} onPress={handleWhatsApp}>
-                                <Ionicons name="logo-whatsapp" size={20} color={Colors.white} />
-                                <Text style={styles.contactBtnText}>Message WhatsApp</Text>
-                            </Pressable>
+                        {/* Direct Contact Buttons (Only active when NOT cancelled) */}
+                        {!isCancelled && (
+                            <View style={styles.contactButtonsRow}>
+                                <Pressable style={[styles.contactBtn, styles.whatsappBtn]} onPress={handleWhatsApp}>
+                                    <Ionicons name="logo-whatsapp" size={20} color={Colors.white} />
+                                    <Text style={styles.contactBtnText}>Message WhatsApp</Text>
+                                </Pressable>
 
-                            <Pressable style={[styles.contactBtn, styles.callBtn]} onPress={handleCall}>
-                                <Ionicons name="call" size={20} color={Colors.white} />
-                                <Text style={styles.contactBtnText}>Call Customer</Text>
-                            </Pressable>
-                        </View>
+                                <Pressable style={[styles.contactBtn, styles.callBtn]} onPress={handleCall}>
+                                    <Ionicons name="call" size={20} color={Colors.white} />
+                                    <Text style={styles.contactBtnText}>Call Customer</Text>
+                                </Pressable>
+                            </View>
+                        )}
                     </View>
 
                     {/* Task Summary Card */}
@@ -174,11 +197,18 @@ export default function ProActiveTaskModal({
                         )}
                     </View>
 
-                    {/* Complete Job Button */}
-                    <Pressable style={styles.completeBtn} onPress={handleComplete}>
-                        <Ionicons name="checkmark-done" size={22} color={Colors.white} />
-                        <Text style={styles.completeBtnText}>Mark Job as Completed</Text>
-                    </Pressable>
+                    {/* Bottom Action Button */}
+                    {isCancelled ? (
+                        <Pressable style={styles.returnBtn} onPress={onClose}>
+                            <Ionicons name="arrow-back" size={20} color={Colors.white} style={{ marginRight: 6 }} />
+                            <Text style={styles.completeBtnText}>Return to Live Jobs</Text>
+                        </Pressable>
+                    ) : (
+                        <Pressable style={styles.completeBtn} onPress={handleComplete}>
+                            <Ionicons name="checkmark-done" size={22} color={Colors.white} />
+                            <Text style={styles.completeBtnText}>Mark Job as Completed</Text>
+                        </Pressable>
+                    )}
                 </ScrollView>
             </View>
         </Modal>
@@ -227,6 +257,27 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         letterSpacing: 0.5,
     },
+    cancelledBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(239,68,68,0.18)',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+        gap: 6,
+    },
+    redDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#EF4444',
+    },
+    cancelledBadgeText: {
+        color: '#EF4444',
+        fontSize: 11,
+        fontWeight: '700',
+        letterSpacing: 0.5,
+    },
     content: {
         padding: 16,
         gap: 16,
@@ -246,6 +297,25 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
     alertSuccessSub: {
+        color: Colors.neutral[300],
+        fontSize: 13,
+        marginTop: 2,
+    },
+    alertCancelled: {
+        backgroundColor: 'rgba(239,68,68,0.12)',
+        borderWidth: 1,
+        borderColor: 'rgba(239,68,68,0.3)',
+        borderRadius: 12,
+        padding: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    alertCancelledTitle: {
+        color: Colors.white,
+        fontSize: 15,
+        fontWeight: '700',
+    },
+    alertCancelledSub: {
         color: Colors.neutral[300],
         fontSize: 13,
         marginTop: 2,
@@ -418,5 +488,14 @@ const styles = StyleSheet.create({
         color: Colors.white,
         fontSize: 16,
         fontWeight: '700',
+    },
+    returnBtn: {
+        backgroundColor: '#374151',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        borderRadius: 12,
+        marginTop: 8,
     },
 });
