@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, Platform, ToastAndroid, Alert } from 'react-native';
 import { getLocationById } from '@/services/location';
 import { getCustomerProfile, normalizeImageUrl } from '@/services/customer';
 import { getTaskAttachments } from '@/services/task';
@@ -14,7 +14,6 @@ const WS_BASE = BASE_URL
     .replace(/^https/, 'wss')
     .replace(/^http/, 'ws');
 
-// Only the messages the server currently sends
 type WSMessage =
     | {
         type: 'task_created';
@@ -29,15 +28,24 @@ type WSMessage =
             created_by?: number;
             customer_name?: string;
             attachments?: any[];
+            worker_id?: number;
         };
     }
-    | { type: 'heartbeat'; task?: null };
+    | { type: 'heartbeat'; task?: null }
+    | {
+        type: 'task_deleted';
+        task_id?: number;
+        worker_id?: number;
+        id?: number;
+        task?: any;
+    };
 
 export type WSStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
 interface UseProWebSocketOptions {
     userId: number | undefined;
     isOnline: boolean;
+    onTaskCancelledForWorker?: (taskId: number, workerId: number) => void;
 }
 
 interface UseProWebSocketResult {
@@ -50,17 +58,19 @@ interface UseProWebSocketResult {
 const MAX_RETRY_DELAY_MS = 30_000;
 const INITIAL_RETRY_DELAY_MS = 1_000;
 
-
-
 export function useProWebSocket({
     userId,
     isOnline,
+    onTaskCancelledForWorker,
 }: UseProWebSocketOptions): UseProWebSocketResult {
     const [jobs, setJobs] = useState<LiveJob[]>([]);
     const [wsStatus, setWsStatus] = useState<WSStatus>('disconnected');
     const [hasNoJobs, setHasNoJobs] = useState(false);
 
     const { ensureCategories, getCategoryById, getStyleById } = useCategoryStore();
+
+    const onTaskCancelledForWorkerRef = useRef(onTaskCancelledForWorker);
+    onTaskCancelledForWorkerRef.current = onTaskCancelledForWorker;
 
     const wsRef = useRef<WebSocket | null>(null);
     const retryDelayRef = useRef(INITIAL_RETRY_DELAY_MS);
@@ -219,12 +229,29 @@ export function useProWebSocket({
                     })();
                 }
 
-                const closedTypes = ['task_assigned', 'task_accepted', 'bidding_closed', 'task_closed', 'task_deleted'];
+                const closedTypes = ['task_assigned', 'task_accepted', 'bidding_closed', 'task_closed', 'task_deleted', 'task_cancelled'];
                 if (closedTypes.includes(msg.type)) {
                     const closedTaskId = (msg as any).task_id || msg.task?.id || (msg as any).id;
+                    const msgWorkerId = (msg as any).worker_id || msg.task?.worker_id;
+
                     if (closedTaskId) {
                         console.log(`[useProWebSocket] Removing closed/assigned task ${closedTaskId} from live jobs feed.`);
                         setJobs((prev) => prev.filter((j) => Number(j.id) !== Number(closedTaskId)));
+
+                        if (
+                            (msg.type === 'task_deleted') &&
+                            msgWorkerId &&
+                            userId &&
+                            String(msgWorkerId) === String(userId)
+                        ) {
+                            console.log(`[useProWebSocket] Task ${closedTaskId} assigned to worker ${userId} was cancelled by customer.`);
+                            if (Platform.OS === 'android') {
+                                ToastAndroid.show('A task assigned to you was cancelled by the customer.', ToastAndroid.LONG);
+                            } else {
+                                Alert.alert('Task Cancelled', 'A task assigned to you was cancelled by the customer.');
+                            }
+                            onTaskCancelledForWorkerRef.current?.(Number(closedTaskId), Number(msgWorkerId));
+                        }
                     }
                 }
                 // 'ping' → no-op (heartbeat keepalive)

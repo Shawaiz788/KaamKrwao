@@ -201,11 +201,24 @@ export default function ProLiveJobsView() {
     const [activeModalJob, setActiveModalJob] = useState<LiveJob | null>(null);
     const [activeModalVisible, setActiveModalVisible] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [useMockData, setUseMockData] = useState(true); // Fallback while WS not configured
+    const [useMockData, setUseMockData] = useState(false); // Fallback while WS not configured
+
+    const handleTaskCancelledByCustomer = useCallback((cancelledTaskId: number) => {
+        console.log(`[ProLiveJobsView] handleTaskCancelledByCustomer triggered for taskId=${cancelledTaskId}`);
+        const targetId = Number(cancelledTaskId);
+        if (assignedJob && Number(assignedJob.id) === targetId) {
+            setAssignedJob(null);
+            if (activeModalJob && Number(activeModalJob.id) === targetId) {
+                setActiveModalJob(null);
+                setActiveModalVisible(false);
+            }
+        }
+    }, [assignedJob, activeModalJob]);
 
     const { jobs: wsJobs, wsStatus, hasNoJobs, refresh: wsRefresh } = useProWebSocket({
         userId: user?.id,
         isOnline,
+        onTaskCancelledForWorker: handleTaskCancelledByCustomer,
     });
 
     const { placeBid, removeBid, getActiveBid, activeJobIds } = useActiveBids(10);
