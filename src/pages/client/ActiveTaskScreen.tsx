@@ -36,6 +36,8 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
   const {
     activeTask,
     activeChatMessages,
+    isCreatingTask,
+    creationStep,
     acceptBid: contextAcceptBid,
     cancelTask,
     completeTask,
@@ -80,7 +82,7 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
 
   // Pulse animation for searching state
   useEffect(() => {
-    if (activeTask?.status === 'searching' || activeTask?.status === 'bidding') {
+    if (isCreatingTask || activeTask?.status === 'searching' || activeTask?.status === 'bidding') {
       Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
@@ -100,7 +102,26 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
     } else {
       pulseAnim.setValue(1);
     }
-  }, [activeTask?.status]);
+  }, [isCreatingTask, activeTask?.status]);
+
+  if (isCreatingTask) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <View style={[styles.container, styles.center, { paddingHorizontal: 24, paddingBottom: 120 }]}>
+          <View style={styles.animationContainer}>
+            <Animated.View style={[styles.pulseCircle, { transform: [{ scale: pulseAnim }] }]} />
+            <View style={styles.centerIcon}>
+              <ActivityIndicator size="small" color="#10B981" />
+            </View>
+          </View>
+          <Text style={[styles.statusText, { marginTop: 20, fontSize: 18 }]}>Publishing Request...</Text>
+          <Text style={[styles.subStatusText, { textAlign: 'center', marginTop: 8 }]}>
+            {creationStep || 'Creating task and connecting to service providers...'}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!activeTask) {
     return (

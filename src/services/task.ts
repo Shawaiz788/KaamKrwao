@@ -25,14 +25,7 @@ export const getTaskAttachments = async (taskId: number): Promise<any[]> => {
   console.log(`[task API] Fetching attachments for task ID: ${taskId}`);
   const url = `${API_URL}/app/attachment/${taskId}/`;
 
-  let response: Response;
-  try {
-    response = await fetchWithAuth(url);
-  } catch (authErr) {
-    console.warn(`[task API] fetchWithAuth failed for task attachments ${taskId}, trying fetchWithTimeout:`, authErr);
-    response = await fetchWithTimeout(url);
-  }
-
+  const response = await fetchWithAuth(url);
   const responseText = await response.text();
   console.log(`[task API] Get attachments response status for task ${taskId}:`, response.status);
   console.log(`[task API] Get attachments response body for task ${taskId}:`, responseText);
@@ -128,30 +121,18 @@ export const getPaymentPreferencesFromBackend = async (token?: string): Promise<
   return JSON.parse(responseText);
 };
 
-// Send create task request (authenticated with fallback retry)
+// Send create task request (authenticated with automatic retry)
 export const createTask = async (task: Omit<Task, 'id'>): Promise<Task> => {
   console.log('[task API] Creating task on backend with payload:', JSON.stringify(task));
   const url = `${API_URL}/app/task/`;
 
-  let response: Response;
-  try {
-    response = await fetchWithAuth(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(task),
-    });
-  } catch (authErr) {
-    console.warn('[task API] fetchWithAuth failed for createTask, trying fetchWithTimeout:', authErr);
-    response = await fetchWithTimeout(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(task),
-    });
-  }
+  const response = await fetchWithAuth(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(task),
+  });
 
   const responseText = await response.text();
   console.log('[task API] Create task response status:', response.status);
@@ -252,21 +233,11 @@ export const updateTaskStatusOnBackend = async (
   }
 
   const url = `${API_URL}/app/task/${taskId}/`;
-  let response: Response;
-  try {
-    response = await fetchWithAuth(url, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({ status_id: statusId }),
-    });
-  } catch (authErr) {
-    console.warn(`[task API] fetchWithAuth failed for PATCH task ${taskId}, trying fallback:`, authErr);
-    response = await fetchWithTimeout(url, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({ status_id: statusId }),
-    });
-  }
+  const response = await fetchWithAuth(url, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ status_id: statusId }),
+  });
 
   const responseText = await response.text();
   console.log('[task API] Update task status response status:', response.status);
@@ -295,19 +266,10 @@ export const softDeleteTaskOnBackend = async (
   }
 
   const url = `${API_URL}/app/task/${taskId}/`;
-  let response: Response;
-  try {
-    response = await fetchWithAuth(url, {
-      method: 'DELETE',
-      headers,
-    });
-  } catch (authErr) {
-    console.warn(`[task API] fetchWithAuth failed for DELETE task ${taskId}, trying fallback:`, authErr);
-    response = await fetchWithTimeout(url, {
-      method: 'DELETE',
-      headers,
-    });
-  }
+  const response = await fetchWithAuth(url, {
+    method: 'DELETE',
+    headers,
+  });
 
   const responseText = await response.text();
   console.log('[task API] Soft-delete task response status:', response.status);

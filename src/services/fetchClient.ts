@@ -102,11 +102,20 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
     // 1. Inject auth headers
     const authHeaders = await getAuthHeaders(options.headers as Record<string, string>);
 
-    // 2. Make original request using fetchWithTimeout
-    let response = await fetchWithTimeout(url, {
-        ...options,
-        headers: authHeaders,
-    });
+    // 2. Make original request using fetchWithTimeout with automatic single network retry
+    let response: Response;
+    try {
+        response = await fetchWithTimeout(url, {
+            ...options,
+            headers: authHeaders,
+        });
+    } catch (netErr) {
+        console.warn('[fetchClient] Network request failed in fetchWithAuth, retrying once with auth headers:', netErr);
+        response = await fetchWithTimeout(url, {
+            ...options,
+            headers: authHeaders,
+        });
+    }
 
     // 3. If unauthorized (401), perform a token refresh and retry
     if (response.status === 401) {

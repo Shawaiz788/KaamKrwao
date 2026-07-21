@@ -8,14 +8,7 @@ export const getCustomerProfile = async (id: number): Promise<CustomerProfile> =
     console.log(`[customer API] Fetching customer profile for ID: ${id}`);
     const url = `${API_URL}/app/profile/${id}/`;
 
-    let response: Response;
-    try {
-        response = await fetchWithAuth(url);
-    } catch (authErr) {
-        console.warn(`[customer API] fetchWithAuth failed for ID ${id}, falling back to fetchWithTimeout:`, authErr);
-        response = await fetchWithTimeout(url);
-    }
-
+    const response = await fetchWithAuth(url);
     const responseText = await response.text();
     console.log(`[customer API] Response Status for ID ${id}:`, response.status);
 

@@ -12,6 +12,8 @@ interface PostJobContextType {
   bids: Bid[];
   activeChatMessages: ChatMessage[];
   selectedCategory: string | null;
+  isCreatingTask: boolean;
+  creationStep: string;
   createTask: (
     categoryId: number,
     categoryName: string,
@@ -37,6 +39,8 @@ const PostJobContext = createContext<PostJobContextType>({
   bids: [],
   activeChatMessages: [],
   selectedCategory: null,
+  isCreatingTask: false,
+  creationStep: '',
   createTask: () => { },
   cancelTask: () => { },
   acceptBid: () => { },
@@ -53,6 +57,8 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
   const [bids, setBids] = useState<Bid[]>([]);
   const [activeChatMessages, setActiveChatMessages] = useState<ChatMessage[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [isCreatingTask, setIsCreatingTask] = useState<boolean>(false);
+  const [creationStep, setCreationStep] = useState<string>('');
 
   // Persistent task history store from MMKV + Zustand
   const { taskHistory, addTaskToHistory, clearHistory: clearTaskStoreHistory } = useTaskStore();
@@ -70,10 +76,6 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Sync activeTask changes to the persisted Zustand store.
-  // This MUST be done in a useEffect (not inside setActiveTask updaters)
-  // because calling zustand set() inside a React state updater triggers
-  // a downstream setState-during-render error.
   useEffect(() => {
     if (activeTask) {
       addTaskToHistory(activeTask);
@@ -116,12 +118,13 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
     addTaskToHistory(newTask);
     setBids([]);
     setActiveChatMessages([]);
+    setIsCreatingTask(true);
+    setCreationStep('Creating task on server...');
 
     const userId = user?.id;
     const locationId = user?.location_id || user?.location?.id || 1;
 
     if (userId) {
-      // Execute backend creation chain in parallel/background
       (async () => {
         try {
           console.log('[PostJobProvider] Dispatching createTaskChain with:', {
@@ -133,6 +136,11 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
             locationId,
             attachmentUris,
           });
+
+          if (attachmentUris && attachmentUris.length > 0) {
+            setCreationStep('Uploading attachments & pictures...');
+          }
+
           const createdBackend = await createTaskChain({
             categoryId,
             categoryName,
@@ -144,6 +152,8 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
             attachmentUris,
           });
           console.log('[PostJobProvider] Backend task created successfully. ID:', createdBackend.id);
+
+          setCreationStep('Connecting to live bidding network...');
 
           if (createdBackend && createdBackend.id) {
             const realId = createdBackend.id;
@@ -157,13 +167,22 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
               };
             });
           }
+          setIsCreatingTask(false);
+          setCreationStep('');
         } catch (err: any) {
           console.error('[PostJobProvider] Failed to submit task to backend database:', err);
-          Alert.alert('Server Connection Error', 'Your request has been published locally, but could not be synchronized with the remote backend database.');
+          setIsCreatingTask(false);
+          setCreationStep('');
+          setActiveTask(null);
+          Alert.alert(
+            'Task Creation Failed',
+            err.message || 'Unable to publish task to server. Please check your internet connection and try again.'
+          );
         }
       })();
     } else {
-      console.warn('[PostJobProvider] Cannot dispatch backend createTask: missing user ID or profile location ID.');
+      console.warn('[PostJobProvider] Cannot dispatch backend createTask: missing user ID.');
+      setIsCreatingTask(false);
     }
 
     if (biddingTimer.current) clearTimeout(biddingTimer.current);
@@ -306,6 +325,8 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
         bids,
         activeChatMessages,
         selectedCategory,
+        isCreatingTask,
+        creationStep,
         createTask,
         cancelTask,
         acceptBid,

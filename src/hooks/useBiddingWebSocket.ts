@@ -137,6 +137,8 @@ export function useBiddingWebSocket({
     const onTaskAssignedToOtherRef = useRef(onTaskAssignedToOther);
     onTaskAssignedToOtherRef.current = onTaskAssignedToOther;
 
+    const watchdogTimerRef = useRef<NodeJS.Timeout | null>(null);
+
     const clearRetryTimer = () => {
         if (retryTimerRef.current) {
             clearTimeout(retryTimerRef.current);
@@ -144,7 +146,16 @@ export function useBiddingWebSocket({
         }
     };
 
+    const clearWatchdogTimer = () => {
+        if (watchdogTimerRef.current) {
+            clearTimeout(watchdogTimerRef.current);
+            watchdogTimerRef.current = null;
+        }
+    };
+
     const closeSocket = useCallback(() => {
+        clearWatchdogTimer();
+        clearRetryTimer();
         if (wsRef.current) {
             wsRef.current.onclose = null; // Prevent reconnect on manual close
             wsRef.current.onerror = null;
@@ -167,12 +178,31 @@ export function useBiddingWebSocket({
         console.log('[useBiddingWebSocket] Connecting to:', url);
         setWsStatus('connecting');
 
+        clearWatchdogTimer();
+        // 2-second connection watchdog: if connection isn't OPEN within 2s, force reconnect
+        watchdogTimerRef.current = setTimeout(() => {
+            if (!isMountedRef.current || !shouldConnectRef.current) return;
+            if (wsRef.current && wsRef.current.readyState !== WebSocket.OPEN) {
+                console.warn(`[useBiddingWebSocket] Connection timed out after 2000ms for task ${taskId}. Re-establishing socket...`);
+                if (wsRef.current) {
+                    wsRef.current.onclose = null;
+                    wsRef.current.onerror = null;
+                    wsRef.current.onmessage = null;
+                    try { wsRef.current.close(); } catch (e) {}
+                    wsRef.current = null;
+                }
+                setWsStatus('reconnecting');
+                connect();
+            }
+        }, 2000);
+
         try {
             const ws = new WebSocket(url);
             wsRef.current = ws;
 
             ws.onopen = () => {
                 if (!isMountedRef.current) return;
+                clearWatchdogTimer();
                 console.log(`[useBiddingWebSocket] Connected to bidding room for task ${taskId}`);
                 setWsStatus('connected');
                 retryDelayRef.current = INITIAL_RETRY_DELAY_MS;
