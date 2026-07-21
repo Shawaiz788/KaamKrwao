@@ -43,7 +43,14 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
     sendActiveChatMessage,
   } = usePostJob();
 
-  const taskId = activeTask?.backend_id || (activeTask?.id && !isNaN(Number(activeTask.id)) ? Number(activeTask.id) : null);
+  const getBackendTaskId = () => {
+    if (activeTask?.backend_id) return activeTask.backend_id;
+    if (!activeTask?.id) return null;
+    const numId = Number(activeTask.id);
+    if (!isNaN(numId) && numId > 0 && numId < 1_000_000_000) return numId;
+    return null;
+  };
+  const taskId = getBackendTaskId();
   const { bids: wsBids, acceptBid: sendWsAcceptBid } = useBiddingWebSocket({
     taskId,
     userId: user?.id,
@@ -196,7 +203,7 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
         )}
 
         {/* Bids List */}
-        {activeTask.status === 'bidding' && (
+        {(activeTask.status === 'bidding' || bids.length > 0) && (
           <View style={styles.bidsSection}>
             <Text style={styles.sectionTitle}>Offers ({bids.length})</Text>
             {bids.length === 0 ? (

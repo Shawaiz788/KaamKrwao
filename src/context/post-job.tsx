@@ -145,12 +145,18 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
           });
           console.log('[PostJobProvider] Backend task created successfully. ID:', createdBackend.id);
 
-          setActiveTask((prev) => {
-            if (!prev || prev.id !== newTask.id) return prev;
-            // Note: addTaskToHistory is NOT called here — the useEffect above
-            // handles syncing to Zustand safely after each render.
-            return { ...prev, backend_id: createdBackend.id };
-          });
+          if (createdBackend && createdBackend.id) {
+            const realId = createdBackend.id;
+            setActiveTask((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                id: realId.toString(),
+                backend_id: realId,
+                status: 'bidding' as const,
+              };
+            });
+          }
         } catch (err: any) {
           console.error('[PostJobProvider] Failed to submit task to backend database:', err);
           Alert.alert('Server Connection Error', 'Your request has been published locally, but could not be synchronized with the remote backend database.');
