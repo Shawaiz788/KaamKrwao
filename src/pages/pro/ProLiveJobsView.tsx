@@ -312,7 +312,7 @@ export default function ProLiveJobsView() {
                 onClose={() => setSheetVisible(false)}
                 activeBid={selectedJob ? getActiveBid(selectedJob.id) : null}
                 onPlaceBid={(job, amount) => {
-                    handleQuickBid(job, amount);
+                    placeBid(job.id, amount);
                 }}
                 onBidAccepted={(job, amount) => {
                     setSheetVisible(false);
