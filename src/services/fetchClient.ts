@@ -112,9 +112,10 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
             ...options,
             headers: authHeaders,
         });
-    } catch (netErr) {
+    } catch (netErr: any) {
         if (isIdempotent) {
-            console.warn(`[fetchClient] Idempotent ${method} request failed with network error, retrying once with auth headers:`, netErr);
+            const errMsg = netErr?.message || String(netErr);
+            console.warn(`[fetchClient] Retrying ${method} ${url} (${errMsg})`);
             response = await fetchWithTimeout(url, {
                 ...options,
                 headers: authHeaders,

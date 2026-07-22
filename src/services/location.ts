@@ -137,8 +137,8 @@ export const getOrCreateLocationChain = async (input: LocationChainInput): Promi
         c.country === null || c.country === undefined
           ? null
           : typeof c.country === 'object'
-          ? c.country?.id
-          : c.country; // plain number
+            ? c.country?.id
+            : c.country; // plain number
       return !cId || cId === countryId;
     }
   );
@@ -163,8 +163,8 @@ export const getOrCreateLocationChain = async (input: LocationChainInput): Promi
         a.city === null || a.city === undefined
           ? null
           : typeof a.city === 'object'
-          ? a.city?.id
-          : a.city; // plain number
+            ? a.city?.id
+            : a.city; // plain number
       return !cId || cId === cityId;
     }
   );

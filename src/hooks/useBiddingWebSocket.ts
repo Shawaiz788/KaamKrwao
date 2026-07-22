@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { AppState, AppStateStatus, ToastAndroid, Alert, Platform } from 'react-native';
-import { assignTaskWorker } from '@/services/task';
+//import { assignTaskWorker } from '@/services/task';
 import { getCustomerProfile, normalizeImageUrl } from '@/services/customer';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
@@ -224,7 +224,7 @@ export function useBiddingWebSocket({
                     wsRef.current.onclose = null;
                     wsRef.current.onerror = null;
                     wsRef.current.onmessage = null;
-                    try { wsRef.current.close(); } catch (e) {}
+                    try { wsRef.current.close(); } catch (e) { }
                     wsRef.current = null;
                 }
                 setWsStatus('reconnecting');
@@ -300,17 +300,17 @@ export function useBiddingWebSocket({
                             } else if (amICustomer) {
                                 showFeedback(`You accepted a bid of Rs. ${accepted.price}`);
 
-                                // CRITICAL Frontend Responsibility: Customer PATCHes the task with worker_id
-                                try {
-                                    console.log(`[useBiddingWebSocket] Customer PATCHing task ${accepted.task_id} with worker_id ${accepted.user_id}`);
-                                    await assignTaskWorker(
-                                        Number(accepted.task_id),
-                                        Number(accepted.user_id)
-                                    );
-                                    console.log(`[useBiddingWebSocket] Successfully assigned task ${accepted.task_id} to worker ${accepted.user_id}`);
-                                } catch (err) {
-                                    console.error('[useBiddingWebSocket] Failed to assign worker_id on task acceptance:', err);
-                                }
+                                // // CRITICAL Frontend Responsibility: Customer PATCHes the task with worker_id
+                                // try {
+                                //     console.log(`[useBiddingWebSocket] Customer PATCHing task ${accepted.task_id} with worker_id ${accepted.user_id}`);
+                                //     await assignTaskWorker(
+                                //         Number(accepted.task_id),
+                                //         Number(accepted.user_id)
+                                //     );
+                                //     console.log(`[useBiddingWebSocket] Successfully assigned task ${accepted.task_id} to worker ${accepted.user_id}`);
+                                // } catch (err) {
+                                //     console.error('[useBiddingWebSocket] Failed to assign worker_id on task acceptance:', err);
+                                // }
                             } else {
                                 showFeedback('This task has been assigned to another professional.');
                             }

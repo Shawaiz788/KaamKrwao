@@ -536,8 +536,8 @@ export const styles = StyleSheet.create({
     paddingTop: 12,
   },
   bottomSkipBtn: {
-    height: 48,
-    borderRadius: 24,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',

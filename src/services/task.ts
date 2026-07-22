@@ -271,40 +271,39 @@ export const softDeleteTaskOnBackend = async (
   }
 };
 
-export const assignTaskWorker = async (
-  taskId: number,
-  workerId: number
-): Promise<any> => {
-  console.log(`[task API] Assigning task ${taskId} to worker ${workerId}`);
-  const url = `${API_URL}/app/task/${taskId}/`;
+// export const assignTaskWorker = async (
+//   taskId: number,
+//   workerId: number
+// ): Promise<any> => {
+//   console.log(`[task API] Assigning task ${taskId} to worker ${workerId}`);
+//   const url = `${API_URL}/app/task/${taskId}/`;
 
-  const response = await fetchWithAuth(url, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ worker_id: workerId }),
-  });
+//   const response = await fetchWithAuth(url, {
+//     method: 'PATCH',
+//     headers: {
+//       'Content-Type': 'application/json',
+//     },
+//     body: JSON.stringify({ worker_id: workerId }),
+//   });
 
-  const responseText = await response.text();
-  console.log('[task API] Assign task worker response status:', response.status);
-  console.log('[task API] Assign task worker response body:', responseText);
+//   const responseText = await response.text();
+//   console.log('[task API] Assign task worker response status:', response.status);
+//   console.log('[task API] Assign task worker response body:', responseText);
 
-  if (!response.ok) {
-    throw new Error(`Failed to assign worker to task on backend. Status: ${response.status}. Response: ${responseText}`);
-  }
+//   if (!response.ok) {
+//     throw new Error(`Failed to assign worker to task on backend. Status: ${response.status}. Response: ${responseText}`);
+//   }
 
-  try {
-    return JSON.parse(responseText);
-  } catch (e) {
-    return { message: responseText };
-  }
-};
+//   try {
+//     return JSON.parse(responseText);
+//   } catch (e) {
+//     return { message: responseText };
+//   }
+// };
 
-export const getUserTasksFromBackend = async (userId?: number): Promise<BackendTask[]> => {
-  console.log(`[getUserTasksFromBackend] Invoked with userId: ${userId} (${typeof userId})`);
-  const url = userId ? `${API_URL}/app/task/${userId}/` : `${API_URL}/app/task/`;
-  console.log(`[getUserTasksFromBackend] Dispatching request to URL: ${url}`);
+export const getUserTasksFromBackend = async (userId: number): Promise<BackendTask[]> => {
+  console.log(`[getUserTasksFromBackend] Fetching user tasks from exact endpoint: ${API_URL}/app/task/customer/${userId}/`);
+  const url = `${API_URL}/app/task/customer/${userId}/`;
 
   const response = await fetchWithAuth(url);
   const responseText = await response.text();
@@ -313,30 +312,21 @@ export const getUserTasksFromBackend = async (userId?: number): Promise<BackendT
 
   if (!response.ok) {
     if (response.status === 404) {
-      console.log(`[getUserTasksFromBackend] Backend returned 404 (no tasks found for user ${userId}).`);
+      console.log(`[getUserTasksFromBackend] Backend returned 404 for user ${userId}. Returning empty array.`);
       return [];
     }
-    console.error(`[getUserTasksFromBackend] Request failed with status ${response.status}`);
     throw new Error(`Failed to fetch user tasks. Status: ${response.status}. Response: ${responseText}`);
   }
 
   try {
     const data = JSON.parse(responseText);
-    let tasksArray: BackendTask[] = [];
-
-    if (Array.isArray(data)) {
-      tasksArray = data;
-    } else if (data && Array.isArray(data.results)) {
-      tasksArray = data.results;
-    } else if (data && typeof data === 'object' && (data as any).id) {
-      tasksArray = [data as BackendTask];
-    }
-
-    console.log(`[getUserTasksFromBackend] Parsed ${tasksArray.length} tasks from backend payload for user ${userId}.`);
-    return tasksArray;
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.results)) return data.results;
+    if (data && typeof data === 'object' && (data as any).id) return [data as BackendTask];
+    return [];
   } catch (e) {
-    console.error('[getUserTasksFromBackend] JSON parsing error:', e);
-    throw new Error(`Failed to parse user tasks JSON. Content: ${responseText}`);
+    console.error('[getUserTasksFromBackend] JSON parse error:', e);
+    throw new Error(`Failed to parse user tasks JSON response: ${responseText}`);
   }
 };
 

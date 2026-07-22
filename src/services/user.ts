@@ -13,7 +13,7 @@ export const createUser = async (user: Omit<User, 'id'>): Promise<User> => {
         },
         body: JSON.stringify(user),
     });
- 
+
     const responseText = await response.text();
     console.log('[createUser API] Response Status:', response.status);
     console.log('[createUser API] Response Body:', responseText);
@@ -179,7 +179,7 @@ export const updateUserOnBackend = async (
     userId: number,
     userDetails: Partial<User>
 ): Promise<User> => {
-    console.log(`[user API] Updating user details on backend for User ID: ${userId}`, userDetails);
+    //console.log(`[user API] Updating user details on backend for User ID: ${userId}`, userDetails);
 
     const response = await fetchWithAuth(`${API_URL}/app/update/user/`, {
         method: 'PATCH',
@@ -189,7 +189,7 @@ export const updateUserOnBackend = async (
         body: JSON.stringify(userDetails),
     });
     const responseText = await response.text();
-    console.log('[user API] Update user response status:', response.status);
+    // console.log('[user API] Update user response status:', response.status);
 
     if (!response.ok) {
         throw new Error(`Failed to update profile on backend. Status: ${response.status}. Response: ${responseText}`);
@@ -205,7 +205,7 @@ export const updateUserOnBackend = async (
 export const updateProfilePic = async (
     uri: string
 ): Promise<User> => {
-    console.log(`[user API] Uploading profile picture from uri: ${uri}`);
+    //console.log(`[user API] Uploading profile picture from uri: ${uri}`);
     const formData = new FormData();
     const filename = uri.split('/').pop() || 'profile.jpg';
     const match = /\.(\w+)$/.exec(filename);
@@ -226,8 +226,8 @@ export const updateProfilePic = async (
     });
 
     const responseText = await response.text();
-    console.log('[user API] Update profile pic response status:', response.status);
-    console.log('[user API] Update profile pic response body:', responseText);
+    // console.log('[user API] Update profile pic response status:', response.status);
+    // console.log('[user API] Update profile pic response body:', responseText);
 
     if (!response.ok) {
         throw new Error(`Failed to update profile picture on backend. Status: ${response.status}. Response: ${responseText}`);
@@ -235,7 +235,7 @@ export const updateProfilePic = async (
 
     try {
         const parsed = JSON.parse(responseText);
-        console.log('[user API] Parsed profile pic response:', JSON.stringify(parsed));
+        //console.log('[user API] Parsed profile pic response:', JSON.stringify(parsed));
         return parsed;
     } catch (e) {
         throw new Error(`Failed to parse profile picture update response. Content: ${responseText}`);
@@ -252,10 +252,10 @@ export const getCustomerReviews = async (userId: number, forceRefresh = false): 
         return cached.data;
     }
 
-    console.log(`[user API] Fetching customer reviews for user ID: ${userId}`);
+    //console.log(`[user API] Fetching customer reviews for user ID: ${userId}`);
     const response = await fetchWithAuth(`${API_URL}/app/review/customer/${userId}/`);
     const responseText = await response.text();
-    console.log('[user API] Get customer reviews status:', response.status);
+    // console.log('[user API] Get customer reviews status:', response.status);
 
     if (!response.ok) {
         throw new Error(`Failed to fetch customer reviews. Status: ${response.status}. Response: ${responseText}`);
