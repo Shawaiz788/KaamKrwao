@@ -15,6 +15,8 @@ import {
   Alert,
   Dimensions,
   ActivityIndicator,
+  Linking,
+  ToastAndroid,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
@@ -83,6 +85,8 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
   const [chatInput, setChatInput] = useState('');
   const [reviewModalVisible, setReviewModalVisible] = useState(false);
   const [completedTaskInfo, setCompletedTaskInfo] = useState<{ id: number; proName: string; proId?: number; title: string } | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancellationStep, setCancellationStep] = useState('Cancelling task request...');
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Periodic API status polling every 35s on active task
@@ -185,12 +189,60 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
   }
 
   const handleDeclineBid = (bidId: string) => {
-    // Just a mock decline to remove it visually from the list
     Alert.alert('Decline Bid', 'You have declined this offer.');
   };
 
-  const handleCall = (name: string) => {
-    Alert.alert('Calling Professional', `Connecting call to ${name}...`, [{ text: 'OK' }]);
+  const handleCall = (bid?: Bid) => {
+    const rawPhone = bid?.phone_number || '';
+    const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+    const targetPhone = cleanPhone.length >= 7 ? cleanPhone : '923001234567';
+    const telUrl = `tel:${targetPhone}`;
+
+    console.log('[ActiveTaskScreen] Opening Tel URL:', telUrl);
+    Linking.openURL(telUrl).catch(() => {
+      Alert.alert('Phone Call Error', 'Could not open phone dialer.');
+    });
+  };
+
+  const handleWhatsApp = (bid?: Bid) => {
+    const rawPhone = bid?.phone_number || '';
+    const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+    const targetPhone = cleanPhone.length >= 7 ? cleanPhone : '923001234567';
+    const textMessage = `Hi ${bid?.name || 'there'}, I am contacting you regarding task "${activeTask?.category}".`;
+    const whatsappUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(textMessage)}`;
+
+    console.log('[ActiveTaskScreen] Opening WhatsApp URL:', whatsappUrl);
+    Linking.openURL(whatsappUrl).catch(() => {
+      Alert.alert(
+        'WhatsApp Error',
+        'Could not open WhatsApp. Please ensure WhatsApp is installed on your device.'
+      );
+    });
+  };
+
+  const handleCancelTask = async () => {
+    setIsCancelling(true);
+    setCancellationStep('Cancelling job request...');
+    try {
+      await cancelTask((stepMsg) => {
+        setCancellationStep(stepMsg);
+      });
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('Task cancelled successfully.', ToastAndroid.SHORT);
+      }
+    } catch (err: any) {
+      console.error('[ActiveTaskScreen] Task cancellation failed:', err);
+      Alert.alert(
+        'Cancellation Error',
+        'Could not cancel task due to a connection error. Would you like to try again?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Try Again', onPress: handleCancelTask },
+        ]
+      );
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   const handleSendChat = () => {
@@ -283,43 +335,63 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
                 </Text>
               </View>
             ) : (
-              bids.map((bid) => (
-                <View key={bid.id} style={styles.bidCard}>
-                  <View style={styles.bidHeader}>
-                    <Image source={{ uri: bid.avatar }} style={styles.bidAvatar} />
-                    <View style={styles.bidHeaderInfo}>
-                      <Text style={styles.bidName}>{bid.name}</Text>
-                      <View style={styles.ratingRow}>
-                        <Ionicons name="star" size={14} color="#F59E0B" />
-                        <Text style={styles.ratingText}>
-                          {bid.rating} ({bid.reviewsCount} reviews)
-                        </Text>
+              bids.map((bid) => {
+                if (bid.is_profile_loading) {
+                  return (
+                    <View key={bid.id} style={styles.bidCard}>
+                      <View style={styles.bidHeader}>
+                        <View style={[styles.bidAvatar, styles.skeletonBox]} />
+                        <View style={styles.bidHeaderInfo}>
+                          <View style={[styles.skeletonLine, { width: 130, height: 16, marginBottom: 8 }]} />
+                          <View style={[styles.skeletonLine, { width: 90, height: 12 }]} />
+                        </View>
+                        <View style={styles.bidPriceContainer}>
+                          <View style={[styles.skeletonLine, { width: 60, height: 16, marginBottom: 4 }]} />
+                          <View style={[styles.skeletonLine, { width: 45, height: 10 }]} />
+                        </View>
                       </View>
                     </View>
-                    <View style={styles.bidPriceContainer}>
-                      <Text style={styles.bidPrice}>Rs. {bid.price}</Text>
-                      <Text style={styles.bidTime}>{bid.timeEstimate} away</Text>
+                  );
+                }
+
+                return (
+                  <View key={bid.id} style={styles.bidCard}>
+                    <View style={styles.bidHeader}>
+                      <Image source={{ uri: bid.avatar }} style={styles.bidAvatar} />
+                      <View style={styles.bidHeaderInfo}>
+                        <Text style={styles.bidName}>{bid.name}</Text>
+                        <View style={styles.ratingRow}>
+                          <Ionicons name="star" size={14} color="#F59E0B" />
+                          <Text style={styles.ratingText}>
+                            {bid.rating} ({bid.reviewsCount} reviews)
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.bidPriceContainer}>
+                        <Text style={styles.bidPrice}>Rs. {bid.price}</Text>
+                        <Text style={styles.bidTime}>{bid.timeEstimate} away</Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.bidComment}>"{bid.message}"</Text>
+
+                    <View style={styles.bidActions}>
+                      <Pressable
+                        style={[styles.bidBtn, styles.declineBtn]}
+                        onPress={() => handleDeclineBid(bid.id)}
+                      >
+                        <Text style={styles.declineBtnText}>Decline</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.bidBtn, styles.acceptBtn]}
+                        onPress={() => handleAcceptBid(bid)}
+                      >
+                        <Text style={styles.acceptBtnText}>Accept Offer</Text>
+                      </Pressable>
                     </View>
                   </View>
-
-                  <Text style={styles.bidComment}>"{bid.message}"</Text>
-
-                  <View style={styles.bidActions}>
-                    <Pressable
-                      style={[styles.bidBtn, styles.declineBtn]}
-                      onPress={() => handleDeclineBid(bid.id)}
-                    >
-                      <Text style={styles.declineBtnText}>Decline</Text>
-                    </Pressable>
-                    <Pressable
-                      style={[styles.bidBtn, styles.acceptBtn]}
-                      onPress={() => handleAcceptBid(bid)}
-                    >
-                      <Text style={styles.acceptBtnText}>Accept Offer</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              ))
+                );
+              })
             )}
           </View>
         )}
@@ -350,9 +422,16 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
               <View style={styles.proContactRow}>
                 <Pressable
                   style={[styles.contactCircleBtn, styles.contactPhone]}
-                  onPress={() => handleCall(activeTask.acceptedBid!.name)}
+                  onPress={() => handleCall(activeTask.acceptedBid)}
                 >
                   <Ionicons name="call" size={20} color="#FFFFFF" />
+                </Pressable>
+
+                <Pressable
+                  style={[styles.contactCircleBtn, styles.contactWhatsApp]}
+                  onPress={() => handleWhatsApp(activeTask.acceptedBid)}
+                >
+                  <Ionicons name="logo-whatsapp" size={20} color="#FFFFFF" />
                 </Pressable>
 
                 <Pressable
@@ -372,7 +451,7 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
 
       {/* Cancel Button */}
       <View style={styles.footer}>
-        <Pressable style={styles.cancelBtn} onPress={cancelTask}>
+        <Pressable style={styles.cancelBtn} onPress={handleCancelTask}>
           <Text style={styles.cancelBtnText}>Cancel Job Request</Text>
         </Pressable>
       </View>
@@ -398,7 +477,7 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
                 <Text style={styles.modalName}>{activeTask.acceptedBid.name}</Text>
                 <Text style={styles.modalStatus}>Active session</Text>
               </View>
-              <Pressable onPress={() => handleCall(activeTask.acceptedBid!.name)} style={styles.modalCallBtn}>
+              <Pressable onPress={() => handleCall(activeTask.acceptedBid)} style={styles.modalCallBtn}>
                 <Ionicons name="call" size={20} color="#FFFFFF" />
               </Pressable>
             </View>
@@ -480,6 +559,17 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
         role="customer"
         taskTitle={completedTaskInfo?.title}
       />
+
+      {/* Progressive Cancellation Overlay */}
+      <Modal visible={isCancelling} transparent animationType="fade">
+        <View style={styles.cancelOverlay}>
+          <View style={styles.cancelCard}>
+            <ActivityIndicator size="large" color="#EF4444" style={{ marginBottom: 16 }} />
+            <Text style={styles.cancelTitle}>Cancelling Task...</Text>
+            <Text style={styles.cancelStepText}>{cancellationStep}</Text>
+          </View>
+        </View>
+      </Modal>
       </View>
     </SafeAreaView>
   );
@@ -1041,5 +1131,46 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: {
     backgroundColor: '#D1D5DB',
+  },
+  contactWhatsApp: {
+    backgroundColor: '#25D366',
+  },
+  skeletonBox: {
+    backgroundColor: '#E5E7EB',
+  },
+  skeletonLine: {
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+  },
+  cancelOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  cancelCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+  },
+  cancelTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  cancelStepText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
   },
 });

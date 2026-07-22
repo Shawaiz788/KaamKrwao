@@ -122,6 +122,10 @@ export interface Bid {
   price: number;
   timeEstimate: string;
   message: string;
+  user_id?: number;
+  phone_number?: string;
+  is_profile_loading?: boolean;
+  worker_profile?: CustomerProfile;
 }
 
 export interface Task {

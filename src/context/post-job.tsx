@@ -30,7 +30,7 @@ interface PostJobContextType {
     locationName: string,
     attachmentUris?: string[] | null
   ) => void;
-  cancelTask: () => void;
+  cancelTask: (onProgress?: (msg: string) => void) => Promise<boolean>;
   acceptBid: (bidId: string, bidObj?: Bid) => void;
   completeTask: () => void;
   sendActiveChatMessage: (text: string) => void;
@@ -48,7 +48,7 @@ const PostJobContext = createContext<PostJobContextType>({
   isCreatingTask: false,
   creationStep: '',
   createTask: () => { },
-  cancelTask: () => { },
+  cancelTask: async () => false,
   acceptBid: () => { },
   completeTask: () => { },
   sendActiveChatMessage: () => { },
@@ -239,47 +239,50 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
     if (biddingTimer.current) clearTimeout(biddingTimer.current);
   };
 
-  const cancelTask = () => {
-    if (activeTask) {
-      const cancelledTask: Task = { ...activeTask, status: 'cancelled' };
-      addTaskToHistory(cancelledTask);
+  const cancelTask = async (onProgress?: (msg: string) => void): Promise<boolean> => {
+    if (!activeTask) {
+      setActiveTask(null);
+      setBids([]);
+      setActiveChatMessages([]);
+      return true;
+    }
 
-      if (activeTask.backend_id) {
-        const taskId = activeTask.backend_id;
-        const token = user?.token;
-        (async () => {
-          try {
-            console.log('[PostJobProvider] Cancelling backend task with ID:', taskId);
-            let statusId = 5; // Default 'cancelled' status ID
-            try {
-              const statuses = await getStatusesFromBackend();
-              const cancelledStatus = statuses.find(s => s.name.toLowerCase() === 'cancelled');
-              if (cancelledStatus) statusId = cancelledStatus.id;
-            } catch {
-              console.log('[PostJobProvider] Using default cancelled status ID (5)');
-            }
+    const taskId = activeTask.backend_id;
+    if (taskId) {
+      onProgress?.('Cancelling request on server...');
+      console.log('[PostJobProvider] Cancelling backend task with ID:', taskId);
+      let statusId = 5; // Default 'cancelled' status ID
+      try {
+        const statuses = await getStatusesFromBackend();
+        const cancelledStatus = statuses.find((s) => s.name.toLowerCase() === 'cancelled');
+        if (cancelledStatus) statusId = cancelledStatus.id;
+      } catch {
+        console.log('[PostJobProvider] Using default cancelled status ID (5)');
+      }
 
-            await updateTaskStatusOnBackend(taskId, statusId);
-            console.log('[PostJobProvider] Backend task status updated to Cancelled.');
+      onProgress?.('Updating task status...');
+      await updateTaskStatusOnBackend(taskId, statusId);
+      console.log('[PostJobProvider] Backend task status updated to Cancelled.');
 
-            try {
-              await softDeleteTaskOnBackend(taskId);
-              console.log('[PostJobProvider] Backend task soft-deleted successfully.');
-            } catch (deleteErr) {
-              console.warn('[PostJobProvider] Soft-delete task API call warning:', deleteErr);
-            }
-          } catch (err) {
-            console.error('[PostJobProvider] Failed to update task status on backend:', err);
-          }
-        })();
+      try {
+        onProgress?.('Finalizing task cancellation...');
+        await softDeleteTaskOnBackend(taskId);
+        console.log('[PostJobProvider] Backend task soft-deleted successfully.');
+      } catch (deleteErr) {
+        console.warn('[PostJobProvider] Soft-delete task API call warning:', deleteErr);
       }
     }
+
+    const cancelledTask: Task = { ...activeTask, status: 'cancelled' };
+    addTaskToHistory(cancelledTask);
+
     setActiveTask(null);
     setBids([]);
     setActiveChatMessages([]);
     if (biddingTimer.current) clearTimeout(biddingTimer.current);
     if (chatGreetingTimer.current) clearTimeout(chatGreetingTimer.current);
     if (chatReplyTimer.current) clearTimeout(chatReplyTimer.current);
+    return true;
   };
 
   const acceptBid = (bidId: string, bidObj?: Bid) => {

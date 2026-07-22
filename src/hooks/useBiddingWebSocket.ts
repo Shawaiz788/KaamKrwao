@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { AppState, AppStateStatus, ToastAndroid, Alert, Platform } from 'react-native';
 import { assignTaskWorker } from '@/services/task';
+import { getCustomerProfile, normalizeImageUrl } from '@/services/customer';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
 const WS_BASE = BASE_URL
@@ -19,6 +20,8 @@ export interface BidsWSBid {
     user_name?: string;
     user_avatar?: string;
     user_rating?: number;
+    phone_number?: string;
+    is_profile_loading?: boolean;
 }
 
 export type BidsWSMessage =
@@ -153,6 +156,39 @@ export function useBiddingWebSocket({
         }
     };
 
+    const enrichBidProfile = useCallback(async (bid: BidsWSBid) => {
+        if (!bid.user_id) return;
+        try {
+            const profile = await getCustomerProfile(Number(bid.user_id));
+            if (!isMountedRef.current) return;
+            const fullName = [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim();
+            const avatar = normalizeImageUrl(profile.image);
+            const rating = profile.overall_rating;
+            const phone = profile.phone_number;
+
+            setBids((prev) =>
+                prev.map((b) => {
+                    if (String(b.id) !== String(bid.id)) return b;
+                    return {
+                        ...b,
+                        user_name: fullName || b.user_name || `Worker #${b.user_id}`,
+                        user_avatar: avatar || b.user_avatar,
+                        user_rating: rating ?? b.user_rating ?? 4.8,
+                        phone_number: phone || b.phone_number,
+                        is_profile_loading: false,
+                    };
+                })
+            );
+        } catch (err) {
+            console.warn(`[useBiddingWebSocket] Profile fetch failed for worker ${bid.user_id}:`, err);
+            if (isMountedRef.current) {
+                setBids((prev) =>
+                    prev.map((b) => (String(b.id) === String(bid.id) ? { ...b, is_profile_loading: false } : b))
+                );
+            }
+        }
+    }, []);
+
     const closeSocket = useCallback(() => {
         clearWatchdogTimer();
         clearRetryTimer();
@@ -224,19 +260,23 @@ export function useBiddingWebSocket({
 
                         case 'bid_history': {
                             if (Array.isArray(data.bids)) {
-                                setBids(data.bids);
+                                const initialBids = data.bids.map((b) => ({ ...b, is_profile_loading: true }));
+                                setBids(initialBids);
+                                initialBids.forEach((b) => enrichBidProfile(b));
                             }
                             break;
                         }
 
                         case 'bid_placed': {
                             if (data.bid) {
+                                const newBid: BidsWSBid = { ...data.bid, is_profile_loading: true };
                                 setBids((prev) => {
-                                    if (prev.some((b) => String(b.id) === String(data.bid.id))) {
+                                    if (prev.some((b) => String(b.id) === String(newBid.id))) {
                                         return prev;
                                     }
-                                    return [data.bid, ...prev];
+                                    return [newBid, ...prev];
                                 });
+                                enrichBidProfile(newBid);
                             }
                             break;
                         }
