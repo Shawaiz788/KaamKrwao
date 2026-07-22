@@ -265,8 +265,7 @@ export function useBiddingWebSocket({
                                     console.log(`[useBiddingWebSocket] Customer PATCHing task ${accepted.task_id} with worker_id ${accepted.user_id}`);
                                     await assignTaskWorker(
                                         Number(accepted.task_id),
-                                        Number(accepted.user_id),
-                                        tokenRef.current
+                                        Number(accepted.user_id)
                                     );
                                     console.log(`[useBiddingWebSocket] Successfully assigned task ${accepted.task_id} to worker ${accepted.user_id}`);
                                 } catch (err) {

@@ -208,18 +208,18 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
             console.log('[PostJobProvider] Cancelling backend task with ID:', taskId);
             let statusId = 5; // Default 'cancelled' status ID
             try {
-              const statuses = await getStatusesFromBackend(token);
+              const statuses = await getStatusesFromBackend();
               const cancelledStatus = statuses.find(s => s.name.toLowerCase() === 'cancelled');
               if (cancelledStatus) statusId = cancelledStatus.id;
             } catch {
               console.log('[PostJobProvider] Using default cancelled status ID (5)');
             }
 
-            await updateTaskStatusOnBackend(taskId, statusId, token);
+            await updateTaskStatusOnBackend(taskId, statusId);
             console.log('[PostJobProvider] Backend task status updated to Cancelled.');
 
             try {
-              await softDeleteTaskOnBackend(taskId, token);
+              await softDeleteTaskOnBackend(taskId);
               console.log('[PostJobProvider] Backend task soft-deleted successfully.');
             } catch (deleteErr) {
               console.warn('[PostJobProvider] Soft-delete task API call warning:', deleteErr);

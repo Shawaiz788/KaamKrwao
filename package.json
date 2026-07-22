@@ -10,7 +10,6 @@
     "get-debug-key": "keytool -list -v -alias androiddebugkey -keystore android/app/debug.keystore -storepass android -keypass android"
   },
   "dependencies": {
-    "@clerk/clerk-expo": "^2.19.31",
     "@expo/vector-icons": "^15.1.1",
     "@hookform/resolvers": "^5.4.0",
     "@react-native-community/datetimepicker": "8.4.4",
@@ -45,7 +44,8 @@
     "react-native-screens": "~4.16.0",
     "react-native-web": "^0.21.0",
     "react-native-webview": "13.15.0",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@babel/plugin-transform-private-methods": "^7.29.7",

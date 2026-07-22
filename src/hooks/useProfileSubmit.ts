@@ -167,7 +167,7 @@ export function useProfileSubmit({
         if (createdUser && createdUser.id) {
           try {
             console.log(`[profile-setup] Auto-verifying new account on backend for User ID: ${createdUser.id}...`);
-            await verifyUserOnBackend(createdUser.id, token);
+            await verifyUserOnBackend(createdUser.id);
             console.log('[profile-setup] Backend verification complete!');
           } catch (verifyErr) {
             console.error('[profile-setup] Auto-verification on backend failed:', verifyErr);

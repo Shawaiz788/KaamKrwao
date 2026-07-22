@@ -106,12 +106,8 @@ export const getCategoriesFromBackend = async (): Promise<Category[]> => {
 };
 
 // Fetch payment preferences list (authenticated)
-export const getPaymentPreferencesFromBackend = async (token?: string): Promise<PaymentPreference[]> => {
-  const headers: Record<string, string> = {};
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  const response = await fetchWithAuth(`${API_URL}/app/paymentpref/`, { headers });
+export const getPaymentPreferencesFromBackend = async (): Promise<PaymentPreference[]> => {
+  const response = await fetchWithAuth(`${API_URL}/app/paymentpref/`);
   const responseText = await response.text();
 
   if (!response.ok) {
@@ -209,12 +205,8 @@ export const createTaskChain = async (input: TaskChainInput): Promise<Task> => {
 
 
 
-export const getStatusesFromBackend = async (token?: string): Promise<Status[]> => {
-  const headers: Record<string, string> = {};
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  const response = await fetchWithAuth(`${API_URL}/app/status/`, { headers });
+export const getStatusesFromBackend = async (): Promise<Status[]> => {
+  const response = await fetchWithAuth(`${API_URL}/app/status/`);
   const responseText = await response.text();
   console.log('[task API] Get statuses response status:', response.status);
 
@@ -227,21 +219,15 @@ export const getStatusesFromBackend = async (token?: string): Promise<Status[]> 
 
 export const updateTaskStatusOnBackend = async (
   taskId: number,
-  statusId: number,
-  token?: string
+  statusId: number
 ): Promise<any> => {
   console.log(`[task API] Updating status of task ${taskId} to status ${statusId}`);
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
   const url = `${API_URL}/app/task/${taskId}/`;
   const response = await fetchWithAuth(url, {
     method: 'PATCH',
-    headers,
+    headers: {
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify({ status_id: statusId }),
   });
 
@@ -260,21 +246,15 @@ export const updateTaskStatusOnBackend = async (
 };
 
 export const softDeleteTaskOnBackend = async (
-  taskId: number,
-  token?: string
+  taskId: number
 ): Promise<any> => {
   console.log(`[task API] Soft-deleting task ${taskId}`);
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
   const url = `${API_URL}/app/task/${taskId}/`;
   const response = await fetchWithAuth(url, {
     method: 'DELETE',
-    headers,
+    headers: {
+      'Content-Type': 'application/json',
+    },
   });
 
   const responseText = await response.text();
@@ -293,21 +273,16 @@ export const softDeleteTaskOnBackend = async (
 
 export const assignTaskWorker = async (
   taskId: number,
-  workerId: number,
-  token?: string
+  workerId: number
 ): Promise<any> => {
   console.log(`[task API] Assigning task ${taskId} to worker ${workerId}`);
   const url = `${API_URL}/app/task/${taskId}/`;
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
   const response = await fetchWithAuth(url, {
     method: 'PATCH',
-    headers,
+    headers: {
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify({ worker_id: workerId }),
   });
 

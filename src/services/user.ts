@@ -90,19 +90,14 @@ export const loginUser = async (phone_number: string, password: string): Promise
 };
 
 // Verify user account on backend using their user ID and optional JWT access token
-export const verifyUserOnBackend = async (userId: number, token?: string): Promise<any> => {
-    const url = `${API_URL}/app/verify/${userId}/`;
+export const verifyUserOnBackend = async (userId: number): Promise<any> => {
+    const url = `${API_URL}/app/user/${userId}/verify/`;
     console.log('[verifyUserOnBackend] Verifying account via URL:', url);
-    const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-    };
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetchWithTimeout(url, {
+    const response = await fetchWithAuth(url, {
         method: 'PATCH',
-        headers,
+        headers: {
+            'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ is_verified: true }),
     });
 
