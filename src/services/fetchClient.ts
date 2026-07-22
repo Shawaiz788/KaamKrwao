@@ -101,8 +101,11 @@ export const getAuthHeaders = async (extraHeaders: Record<string, string> = {}):
 export const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
     // 1. Inject auth headers
     const authHeaders = await getAuthHeaders(options.headers as Record<string, string>);
+    const method = (options.method || 'GET').toUpperCase();
+    const isIdempotent = ['GET', 'HEAD', 'PUT', 'DELETE', 'OPTIONS'].includes(method);
 
-    // 2. Make original request using fetchWithTimeout with automatic single network retry
+    // 2. Make original request using fetchWithTimeout
+    // Only retry network errors automatically for idempotent HTTP methods to prevent duplicate POST creation
     let response: Response;
     try {
         response = await fetchWithTimeout(url, {
@@ -110,11 +113,15 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
             headers: authHeaders,
         });
     } catch (netErr) {
-        console.warn('[fetchClient] Network request failed in fetchWithAuth, retrying once with auth headers:', netErr);
-        response = await fetchWithTimeout(url, {
-            ...options,
-            headers: authHeaders,
-        });
+        if (isIdempotent) {
+            console.warn(`[fetchClient] Idempotent ${method} request failed with network error, retrying once with auth headers:`, netErr);
+            response = await fetchWithTimeout(url, {
+                ...options,
+                headers: authHeaders,
+            });
+        } else {
+            throw netErr;
+        }
     }
 
     // 3. If unauthorized (401), perform a token refresh and retry

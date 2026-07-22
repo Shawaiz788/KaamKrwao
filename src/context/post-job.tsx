@@ -166,6 +166,13 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
                 status: 'bidding' as const,
               };
             });
+
+            if (createdBackend._failedAttachmentCount && createdBackend._failedAttachmentCount > 0) {
+              Alert.alert(
+                'Attachment Upload Warning',
+                `Your task was created successfully, but ${createdBackend._failedAttachmentCount} attachment photo(s) failed to upload.`
+              );
+            }
           }
           setIsCreatingTask(false);
           setCreationStep('');

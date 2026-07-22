@@ -184,18 +184,24 @@ export const createTaskChain = async (input: TaskChainInput): Promise<Task> => {
   console.log(`[createTaskChain] Task created with ID: ${createdTask.id}. Now starting attachments upload...`);
 
   // 6. Upload multiple attachments to backend (now linked to task ID)
+  let failedAttachmentCount = 0;
   if (attachmentUris && attachmentUris.length > 0 && createdTask.id) {
     const uploadPromises = attachmentUris.map(async (uri) => {
       try {
         const uploadResultId = await uploadAttachment(uri, createdTask.id!);
-        //   console.log(`[createTaskChain] Attachment uploaded successfully with ID: ${uploadResultId} for Task ID: ${createdTask.id}`);
+        console.log(`[createTaskChain] Attachment uploaded successfully with ID: ${uploadResultId} for Task ID: ${createdTask.id}`);
       } catch (err) {
-        // console.error(`[createTaskChain] Attachment upload failed for uri: ${uri}.`, err);
+        console.error(`[createTaskChain] Attachment upload failed for uri: ${uri}. Error:`, err);
+        failedAttachmentCount++;
       }
     });
 
     // Run parallel uploads
     await Promise.all(uploadPromises);
+  }
+
+  if (failedAttachmentCount > 0) {
+    createdTask._failedAttachmentCount = failedAttachmentCount;
   }
 
   return createdTask;
@@ -299,21 +305,11 @@ export const assignTaskWorker = async (
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  let response: Response;
-  try {
-    response = await fetchWithAuth(url, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({ worker_id: workerId }),
-    });
-  } catch (err: any) {
-    console.warn(`[task API] First attempt for assignTaskWorker on task ${taskId} failed (${err?.message}), retrying...`);
-    response = await fetchWithAuth(url, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({ worker_id: workerId }),
-    });
-  }
+  const response = await fetchWithAuth(url, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ worker_id: workerId }),
+  });
 
   const responseText = await response.text();
   console.log('[task API] Assign task worker response status:', response.status);

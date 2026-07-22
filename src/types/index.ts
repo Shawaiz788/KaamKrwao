@@ -71,7 +71,6 @@ export interface ProEarnings {
   jobs_done: number;
   updated_at: string;
   daily_jobs_done: number;
-
 }
 
 // ─── Customer Profile Types ──────────────────────────────────────────────────
@@ -167,6 +166,7 @@ export interface BackendTask {
   payment_preference_id: number;
   accurately_estimated: number;
   category_id: number;
+  _failedAttachmentCount?: number;
 }
 
 export interface ChatMessage {

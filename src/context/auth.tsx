@@ -58,10 +58,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 await SecureStore.setItemAsync('user_refresh_token', appUser.refreshToken);
                 //console.log('[SecureStore] Saved user JWT refresh token');
             }
-            if (password) {
-                await SecureStore.setItemAsync('user_password', password);
-                // console.log('[SecureStore] Saved user password to SecureStore');
-            }
             await SecureStore.setItemAsync('user_session', JSON.stringify(appUser, null, 4));
             //console.log('[SecureStore] Saved user session:', appUser);
             setUser(appUser);
@@ -77,8 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await SecureStore.deleteItemAsync('user_token');
             await SecureStore.deleteItemAsync('user_refresh_token');
             await SecureStore.deleteItemAsync('user_token_saved_at');
-            await SecureStore.deleteItemAsync('user_password');
-            //console.log('[SecureStore] Deleted user session, tokens, password, and timestamp from device');
+            //console.log('[SecureStore] Deleted user session, tokens, and timestamp from device');
             setUser(null);
         } catch (e) {
             console.error('Error clearing user session:', e);

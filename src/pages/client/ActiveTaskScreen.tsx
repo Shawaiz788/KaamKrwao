@@ -225,7 +225,13 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
           <View style={styles.bidsSection}>
             <Text style={styles.sectionTitle}>Offers ({bids.length})</Text>
             {bids.length === 0 ? (
-              <ActivityIndicator size="small" color="#10B981" style={{ marginTop: 20 }} />
+              <View style={styles.noOffersContainer}>
+                <Ionicons name="chatbox-ellipses-outline" size={24} color="#9CA3AF" style={{ marginBottom: 4 }} />
+                <Text style={styles.noOffersText}>No offers received yet</Text>
+                <Text style={styles.noOffersSubText}>
+                  Offers from nearby service providers will appear here in real time.
+                </Text>
+              </View>
             ) : (
               bids.map((bid) => (
                 <View key={bid.id} style={styles.bidCard}>
@@ -561,6 +567,29 @@ const styles = StyleSheet.create({
   },
   bidsSection: {
     marginTop: 10,
+  },
+  noOffersContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    borderStyle: 'dashed',
+    marginTop: 4,
+  },
+  noOffersText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  noOffersSubText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginTop: 4,
   },
   sectionTitle: {
     fontSize: 16,
