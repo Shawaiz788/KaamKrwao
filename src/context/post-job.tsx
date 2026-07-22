@@ -3,8 +3,6 @@ import { Alert } from 'react-native';
 import { useAuth } from './auth';
 import {
   createTaskChain,
-  getStatusesFromBackend,
-  updateTaskStatusOnBackend,
   softDeleteTaskOnBackend,
   getUserTasksFromBackend,
 } from '@/services/task';
@@ -236,23 +234,9 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
 
     const taskId = activeTask.backend_id;
     if (taskId) {
-      onProgress?.('Cancelling request on server...');
-      console.log('[PostJobProvider] Cancelling backend task with ID:', taskId);
-      let statusId = 5; // Default 'cancelled' status ID
       try {
-        const statuses = await getStatusesFromBackend();
-        const cancelledStatus = statuses.find((s) => s.name.toLowerCase() === 'cancelled');
-        if (cancelledStatus) statusId = cancelledStatus.id;
-      } catch {
-        console.log('[PostJobProvider] Using default cancelled status ID (5)');
-      }
-
-      onProgress?.('Updating task status...');
-      await updateTaskStatusOnBackend(taskId, statusId);
-      console.log('[PostJobProvider] Backend task status updated to Cancelled.');
-
-      try {
-        onProgress?.('Finalizing task cancellation...');
+        onProgress?.('Cancelling request on server...');
+        console.log('[PostJobProvider] Soft-deleting backend task with ID:', taskId);
         await softDeleteTaskOnBackend(taskId);
         console.log('[PostJobProvider] Backend task soft-deleted successfully.');
       } catch (deleteErr) {
