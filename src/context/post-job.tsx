@@ -1,7 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { useAuth } from './auth';
-import { createTaskChain, getStatusesFromBackend, updateTaskStatusOnBackend, softDeleteTaskOnBackend } from '@/services/task';
+import {
+  createTaskChain,
+  getStatusesFromBackend,
+  updateTaskStatusOnBackend,
+  softDeleteTaskOnBackend,
+  getUserTasksFromBackend,
+} from '@/services/task';
 import useTaskStore from '../store/taskStore';
 import { Bid, Task, ChatMessage } from '@/types';
 export { Bid, Task, ChatMessage };
@@ -61,11 +67,49 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
   const [creationStep, setCreationStep] = useState<string>('');
 
   // Persistent task history store from MMKV + Zustand
-  const { taskHistory, addTaskToHistory, clearHistory: clearTaskStoreHistory } = useTaskStore();
+  const { taskHistory, switchUser, setTaskHistory, addTaskToHistory, clearHistory: clearTaskStoreHistory } = useTaskStore();
+  const syncedUsersRef = useRef<Set<number>>(new Set());
 
   const biddingTimer = useRef<NodeJS.Timeout | null>(null);
   const chatGreetingTimer = useRef<NodeJS.Timeout | null>(null);
   const chatReplyTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // Handle user account switching & one-time on-login API task history sync
+  useEffect(() => {
+    const userId = user?.id;
+    if (!userId) {
+      switchUser(null);
+      return;
+    }
+
+    switchUser(userId);
+
+    if (!syncedUsersRef.current.has(userId)) {
+      syncedUsersRef.current.add(userId);
+      (async () => {
+        try {
+          console.log(`[PostJobProvider] Syncing task history from backend for User ID: ${userId}...`);
+          const backendTasks = await getUserTasksFromBackend(userId);
+          const mappedTasks: Task[] = (backendTasks || []).map((bt) => ({
+            id: bt.id ? bt.id.toString() : Date.now().toString(),
+            backend_id: bt.id,
+            category: bt.subject || 'General Task',
+            description: bt.body || '',
+            budget: bt.price || 0,
+            locationName: 'Specified Location',
+            paymentPref: 'Cash',
+            status: (bt.status_id === 4 ? 'completed' : bt.status_id === 5 ? 'cancelled' : 'searching') as any,
+            createdAt: bt.created_at || new Date().toISOString(),
+          }));
+
+          setTaskHistory(mappedTasks);
+          console.log(`[PostJobProvider] Successfully synced ${mappedTasks.length} tasks from backend for User ID: ${userId}.`);
+        } catch (err) {
+          console.warn('[PostJobProvider] On-login task history API sync failed, relying on MMKV cache:', err);
+        }
+      })();
+    }
+  }, [user?.id]);
 
   // Clean up timers on unmount
   useEffect(() => {

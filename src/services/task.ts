@@ -301,3 +301,42 @@ export const assignTaskWorker = async (
   }
 };
 
+export const getUserTasksFromBackend = async (userId?: number): Promise<BackendTask[]> => {
+  console.log(`[getUserTasksFromBackend] Invoked with userId: ${userId} (${typeof userId})`);
+  const url = userId ? `${API_URL}/app/task/${userId}/` : `${API_URL}/app/task/`;
+  console.log(`[getUserTasksFromBackend] Dispatching request to URL: ${url}`);
+
+  const response = await fetchWithAuth(url);
+  const responseText = await response.text();
+  console.log(`[getUserTasksFromBackend] Response Status: ${response.status}`);
+  console.log(`[getUserTasksFromBackend] Raw Response Body:`, responseText);
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      console.log(`[getUserTasksFromBackend] Backend returned 404 (no tasks found for user ${userId}).`);
+      return [];
+    }
+    console.error(`[getUserTasksFromBackend] Request failed with status ${response.status}`);
+    throw new Error(`Failed to fetch user tasks. Status: ${response.status}. Response: ${responseText}`);
+  }
+
+  try {
+    const data = JSON.parse(responseText);
+    let tasksArray: BackendTask[] = [];
+
+    if (Array.isArray(data)) {
+      tasksArray = data;
+    } else if (data && Array.isArray(data.results)) {
+      tasksArray = data.results;
+    } else if (data && typeof data === 'object' && (data as any).id) {
+      tasksArray = [data as BackendTask];
+    }
+
+    console.log(`[getUserTasksFromBackend] Parsed ${tasksArray.length} tasks from backend payload for user ${userId}.`);
+    return tasksArray;
+  } catch (e) {
+    console.error('[getUserTasksFromBackend] JSON parsing error:', e);
+    throw new Error(`Failed to parse user tasks JSON. Content: ${responseText}`);
+  }
+};
+

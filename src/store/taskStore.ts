@@ -1,61 +1,96 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import { createMMKV } from 'react-native-mmkv';
 import { Task } from '@/types';
 
-// 1. Initialize MMKV storage instance using the factory function in react-native-mmkv v4
+// 1. Initialize MMKV storage instance using react-native-mmkv
 const storage = createMMKV();
 
-// 2. Define custom storage wrapper for Zustand integration
-const mmkvStorage = {
-    setItem: (name: string, value: string) => {
-        storage.set(name, value);
-    },
-    getItem: (name: string) => {
-        const value = storage.getString(name);
-        return value ?? null;
-    },
-    removeItem: (name: string) => {
-        storage.remove(name);
-    },
-};
-
-// 3. Define Zustand Task history store interface
+// 2. Define Zustand Task history store interface
 export interface TaskStoreState {
-    taskHistory: Task[];
-    addTaskToHistory: (task: Task) => void;
-    removeTaskFromHistory: (taskId: string) => void;
-    clearHistory: () => void;
+  activeUserId: number | null;
+  taskHistory: Task[];
+  switchUser: (userId: number | null) => void;
+  setTaskHistory: (tasks: Task[]) => void;
+  addTaskToHistory: (task: Task) => void;
+  removeTaskFromHistory: (taskId: string) => void;
+  clearHistory: () => void;
 }
 
-// 4. Create the persisted store
-const useTaskStore = create<TaskStoreState>()(
-    persist(
-        (set) => ({
-            taskHistory: [],
-            addTaskToHistory: (task: Task) =>
-                set((state) => {
-                    const exists = state.taskHistory.some((t) => t.id === task.id);
-                    if (exists) {
-                        return {
-                            taskHistory: state.taskHistory.map((t) =>
-                                t.id === task.id ? task : t
-                            ),
-                        };
-                    }
-                    return { taskHistory: [task, ...state.taskHistory] };
-                }),
-            removeTaskFromHistory: (taskId: string) =>
-                set((state) => ({
-                    taskHistory: state.taskHistory.filter((t) => t.id !== taskId),
-                })),
-            clearHistory: () => set({ taskHistory: [] }),
-        }),
-        {
-            name: 'task-history-storage',
-            storage: createJSONStorage(() => mmkvStorage),
-        }
-    )
-);
+const getUserStorageKey = (userId: number | null) => {
+  return userId ? `task_history_user_${userId}` : null;
+};
+
+const loadHistoryFromMMKV = (userId: number | null): Task[] => {
+  const key = getUserStorageKey(userId);
+  if (!key) return [];
+  try {
+    const json = storage.getString(key);
+    return json ? JSON.parse(json) : [];
+  } catch (e) {
+    console.error(`[taskStore] Error loading MMKV history for user ${userId}:`, e);
+    return [];
+  }
+};
+
+const saveHistoryToMMKV = (userId: number | null, history: Task[]) => {
+  const key = getUserStorageKey(userId);
+  if (!key) return;
+  try {
+    storage.set(key, JSON.stringify(history));
+  } catch (e) {
+    console.error(`[taskStore] Error saving MMKV history for user ${userId}:`, e);
+  }
+};
+
+const useTaskStore = create<TaskStoreState>()((set, get) => ({
+  activeUserId: null,
+  taskHistory: [],
+
+  switchUser: (userId: number | null) => {
+    const loadedHistory = loadHistoryFromMMKV(userId);
+    set({ activeUserId: userId, taskHistory: loadedHistory });
+  },
+
+  setTaskHistory: (tasks: Task[]) => {
+    const userId = get().activeUserId;
+    saveHistoryToMMKV(userId, tasks);
+    set({ taskHistory: tasks });
+  },
+
+  addTaskToHistory: (task: Task) => {
+    const state = get();
+    const exists = state.taskHistory.some(
+      (t) => t.id === task.id || (t.backend_id && task.backend_id && t.backend_id === task.backend_id)
+    );
+    let updated: Task[];
+    if (exists) {
+      updated = state.taskHistory.map((t) =>
+        t.id === task.id || (t.backend_id && task.backend_id && t.backend_id === task.backend_id)
+          ? { ...t, ...task }
+          : t
+      );
+    } else {
+      updated = [task, ...state.taskHistory];
+    }
+    saveHistoryToMMKV(state.activeUserId, updated);
+    set({ taskHistory: updated });
+  },
+
+  removeTaskFromHistory: (taskId: string) => {
+    const state = get();
+    const updated = state.taskHistory.filter((t) => t.id !== taskId);
+    saveHistoryToMMKV(state.activeUserId, updated);
+    set({ taskHistory: updated });
+  },
+
+  clearHistory: () => {
+    const userId = get().activeUserId;
+    const key = getUserStorageKey(userId);
+    if (key) {
+      storage.remove(key);
+    }
+    set({ taskHistory: [] });
+  },
+}));
 
 export default useTaskStore;

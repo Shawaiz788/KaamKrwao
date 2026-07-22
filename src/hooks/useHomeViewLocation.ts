@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Alert, Keyboard } from 'react-native';
 import * as Location from 'expo-location';
 import { getLocationById } from '@/services/location';
@@ -98,43 +98,94 @@ export function useHomeViewLocation({ user, webViewRef }: UseHomeViewLocationPro
     }
   };
 
-  const searchLocations = async (query: string) => {
+  const searchDebounceRef = useRef<any>(null);
+
+  const formatSearchResult = (item: any) => {
+    const addr = item.address || {};
+    const parts = item.display_name.split(',').map((s: string) => s.trim());
+
+    // Determine primary title
+    let title =
+      addr.amenity ||
+      addr.building ||
+      addr.shop ||
+      addr.office ||
+      addr.tourism ||
+      addr.suburb ||
+      addr.neighbourhood ||
+      addr.residential ||
+      addr.road ||
+      parts[0] ||
+      'Location';
+
+    // Build clean subtitle (exclude country & zipcode)
+    const subtitleParts: string[] = [];
+    if (addr.road && addr.road !== title) subtitleParts.push(addr.road);
+    if (addr.suburb && addr.suburb !== title) subtitleParts.push(addr.suburb);
+    if (addr.neighbourhood && addr.neighbourhood !== title) subtitleParts.push(addr.neighbourhood);
+    if (addr.city || addr.town || addr.county) subtitleParts.push(addr.city || addr.town || addr.county);
+    if (addr.state && !subtitleParts.includes(addr.state)) subtitleParts.push(addr.state);
+
+    let cleanSubtitle = subtitleParts.join(', ');
+    if (!cleanSubtitle) {
+      cleanSubtitle = parts
+        .filter((p: string) => p !== title && !/^\d{5}$/.test(p) && p.toLowerCase() !== 'pakistan')
+        .slice(0, 3)
+        .join(', ');
+    }
+
+    return {
+      id: String(item.place_id),
+      name: title,
+      address: cleanSubtitle || item.display_name,
+      latitude: parseFloat(item.lat),
+      longitude: parseFloat(item.lon),
+      type: item.type || item.class || 'location',
+    };
+  };
+
+  const searchLocations = (query: string) => {
     setSearchQuery(query);
-    if (query.trim().length < 3) {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    if (query.trim().length < 2) {
       setSearchResults([]);
+      setSearchingLocation(false);
       return;
     }
+
     setSearchingLocation(true);
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=8&countrycodes=pk&addressdetails=1`,
-        {
-          headers: {
-            'Accept-Language': 'en',
-            'User-Agent': 'KaamKrwaoApp/1.0',
-          },
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        let viewboxParam = '';
+        if (mapCoords?.latitude && mapCoords?.longitude) {
+          const lat = mapCoords.latitude;
+          const lng = mapCoords.longitude;
+          viewboxParam = `&viewbox=${lng - 0.5},${lat + 0.5},${lng + 0.5},${lat - 0.5}`;
         }
-      );
-      const data = await response.json();
-      if (data && Array.isArray(data)) {
-        const formatted = data.map((item: any) => {
-          const name = item.display_name.split(',')[0];
-          return {
-            id: item.place_id,
-            name: name || 'Location',
-            address: item.display_name,
-            latitude: parseFloat(item.lat),
-            longitude: parseFloat(item.lon),
-            type: item.type || 'monument',
-          };
-        });
-        setSearchResults(formatted);
+
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&countrycodes=pk&addressdetails=1${viewboxParam}`,
+          {
+            headers: {
+              'Accept-Language': 'en',
+              'User-Agent': 'KaamKrwaoApp/1.0',
+            },
+          }
+        );
+        const data = await response.json();
+        if (data && Array.isArray(data)) {
+          const formatted = data.map(formatSearchResult);
+          setSearchResults(formatted);
+        }
+      } catch (error) {
+        console.error('Search location error: ', error);
+      } finally {
+        setSearchingLocation(false);
       }
-    } catch (error) {
-      console.error('Search location error: ', error);
-    } finally {
-      setSearchingLocation(false);
-    }
+    }, 300);
   };
 
   const openSearchModal = () => {

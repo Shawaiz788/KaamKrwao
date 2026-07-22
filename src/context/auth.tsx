@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { AppUser } from '@/types';
+import useTaskStore from '../store/taskStore';
 
 interface AuthContextType {
     user: AppUser | null;
@@ -73,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await SecureStore.deleteItemAsync('user_token');
             await SecureStore.deleteItemAsync('user_refresh_token');
             await SecureStore.deleteItemAsync('user_token_saved_at');
-            //console.log('[SecureStore] Deleted user session, tokens, and timestamp from device');
+            useTaskStore.getState().switchUser(null);
             setUser(null);
         } catch (e) {
             console.error('Error clearing user session:', e);

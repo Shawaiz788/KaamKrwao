@@ -159,6 +159,7 @@ export interface BackendTask {
   subject: string;
   body: string;
   price: number;
+  created_at?: string;
   created_by: number;
   preferred_time: string;
   location_id: number;
