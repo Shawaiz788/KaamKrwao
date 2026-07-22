@@ -340,3 +340,41 @@ export const getUserTasksFromBackend = async (userId?: number): Promise<BackendT
   }
 };
 
+export const getOpenTasksFromBackend = async (): Promise<BackendTask[]> => {
+  console.log(`[getOpenTasksFromBackend] Dispatching request to URL: ${API_URL}/app/task/open/`);
+
+  const response = await fetchWithAuth(`${API_URL}/app/task/open/`);
+  const responseText = await response.text();
+  console.log(`[getOpenTasksFromBackend] Response Status: ${response.status}`);
+  console.log(`[getOpenTasksFromBackend] Raw Response Body:`, responseText);
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      console.log('[getOpenTasksFromBackend] Backend returned 404 (no open tasks found).');
+      return [];
+    }
+    console.error(`[getOpenTasksFromBackend] Request failed with status ${response.status}`);
+    throw new Error(`Failed to fetch open tasks. Status: ${response.status}. Response: ${responseText}`);
+  }
+
+  try {
+    const data = JSON.parse(responseText);
+    let tasksArray: BackendTask[] = [];
+
+    if (Array.isArray(data)) {
+      tasksArray = data;
+    } else if (data && Array.isArray(data.results)) {
+      tasksArray = data.results;
+    } else if (data && typeof data === 'object' && (data as any).id) {
+      tasksArray = [data as BackendTask];
+    }
+
+    console.log(`[getOpenTasksFromBackend] Parsed ${tasksArray.length} open tasks from backend payload.`);
+    return tasksArray;
+  } catch (e) {
+    console.error('[getOpenTasksFromBackend] JSON parsing error:', e);
+    throw new Error(`Failed to parse open tasks JSON. Content: ${responseText}`);
+  }
+};
+
+

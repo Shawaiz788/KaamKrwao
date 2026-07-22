@@ -253,8 +253,11 @@ export default function ProLiveJobsView() {
 
     const handleRefresh = useCallback(async () => {
         setIsRefreshing(true);
-        wsRefresh();
-        setTimeout(() => setIsRefreshing(false), 1500);
+        try {
+            await wsRefresh();
+        } finally {
+            setIsRefreshing(false);
+        }
     }, [wsRefresh]);
 
     const handleJobAcceptedForPro = useCallback((jobId: number, bid?: any) => {

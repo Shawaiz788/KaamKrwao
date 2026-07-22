@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export interface ActiveBidState {
     jobId: number;
@@ -14,22 +14,43 @@ export interface ActiveBidState {
 export function useActiveBids(durationSeconds: number = 10) {
     const [bids, setBids] = useState<Record<number, ActiveBidState>>({});
     const durationMs = durationSeconds * 1000;
+    const timersRef = useRef<Record<number, NodeJS.Timeout>>({});
 
-
+    const removeBid = useCallback((jobId: number) => {
+        if (timersRef.current[jobId]) {
+            clearTimeout(timersRef.current[jobId]);
+            delete timersRef.current[jobId];
+        }
+        setBids((prev) => {
+            if (!prev[jobId]) return prev;
+            const next = { ...prev };
+            delete next[jobId];
+            return next;
+        });
+    }, []);
 
     const placeBid = useCallback(
         (jobId: number, amount: number) => {
+            const now = Date.now();
+            if (timersRef.current[jobId]) {
+                clearTimeout(timersRef.current[jobId]);
+            }
             setBids((prev) => ({
                 ...prev,
                 [jobId]: {
                     jobId,
                     amount,
-                    startTimeMs: Date.now(),
+                    startTimeMs: now,
                     durationMs,
                 },
             }));
+
+            // Automatically remove bid once durationMs expires
+            timersRef.current[jobId] = setTimeout(() => {
+                removeBid(jobId);
+            }, durationMs + 200);
         },
-        [durationMs]
+        [durationMs, removeBid]
     );
 
     const getActiveBid = useCallback(
@@ -43,13 +64,11 @@ export function useActiveBids(durationSeconds: number = 10) {
         [bids]
     );
 
-    const removeBid = useCallback((jobId: number) => {
-        setBids((prev) => {
-            if (!prev[jobId]) return prev;
-            const next = { ...prev };
-            delete next[jobId];
-            return next;
-        });
+    // Cleanup timers on unmount
+    useEffect(() => {
+        return () => {
+            Object.values(timersRef.current).forEach((t) => clearTimeout(t));
+        };
     }, []);
 
     const activeJobIds = Object.keys(bids).map(Number);
@@ -61,3 +80,4 @@ export function useActiveBids(durationSeconds: number = 10) {
         activeJobIds,
     };
 }
+

@@ -203,21 +203,29 @@ export default function JobDetailBottomSheet({
         }
     }, [isVisible]);
 
+    const [isAttachmentsLoading, setIsAttachmentsLoading] = useState(false);
+
     useEffect(() => {
         setLocalAttachments(job?.attachments || []);
     }, [job]);
 
     useEffect(() => {
         if (isVisible && job?.id) {
+            setIsAttachmentsLoading(true);
             getTaskAttachments(job.id)
                 .then((fresh) => {
-                    if (fresh && Array.isArray(fresh) && fresh.length > 0) {
+                    if (fresh && Array.isArray(fresh)) {
                         setLocalAttachments(fresh);
                     }
                 })
                 .catch((err) => {
                     console.warn(`[JobDetailBottomSheet] Failed to fetch fresh attachments for task ${job.id}:`, err);
+                })
+                .finally(() => {
+                    setIsAttachmentsLoading(false);
                 });
+        } else if (!isVisible) {
+            setIsAttachmentsLoading(false);
         }
     }, [isVisible, job?.id]);
 
@@ -584,7 +592,12 @@ export default function JobDetailBottomSheet({
                                     )}
                                 </View>
 
-                                {attachmentList.length > 0 ? (
+                                {isAttachmentsLoading && attachmentList.length === 0 ? (
+                                    <View style={{ flexDirection: 'row', gap: 10, paddingVertical: 6 }}>
+                                        <SkeletonBox width={80} height={80} borderRadius={8} />
+                                        <SkeletonBox width={80} height={80} borderRadius={8} />
+                                    </View>
+                                ) : attachmentList.length > 0 ? (
                                     <ScrollView
                                         horizontal
                                         nestedScrollEnabled
