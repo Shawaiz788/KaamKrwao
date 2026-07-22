@@ -59,7 +59,8 @@ export interface LocationChainInput {
   countryName: string;
   cityName: string;
   areaName: string;
-  /** Pre-resolved IDs from the UI state. When provided, all API lookups are skipped. */
+  /** Pre-resolved IDs from the UI state. When provided, API lookups are fast-tracked. */
+  resolvedCountryId?: number;
   resolvedCityId?: number;
   resolvedAreaId?: number;
   houseNumber: string;
@@ -76,13 +77,29 @@ export const getOrCreateLocationChain = async (input: LocationChainInput): Promi
 
   // ── Fast path: city and area IDs already known from the UI ──────────────────
   if (input.resolvedCityId && input.resolvedAreaId) {
-    console.log('[LocationChain] Using pre-resolved IDs — skipping API lookups.');
-    console.log(`[LocationChain] cityId=${input.resolvedCityId}, areaId=${input.resolvedAreaId}`);
+    console.log('[LocationChain] Using pre-resolved city/area IDs — resolving countryId...');
+    
+    let countryId = input.resolvedCountryId;
+    if (!countryId) {
+      try {
+        const countries = await getCountries();
+        const existingCountry = (countries || []).find(
+          (c) => c.name.toLowerCase() === (countryName || 'pakistan').toLowerCase()
+        );
+        countryId = existingCountry ? existingCountry.id : (countries && countries[0] ? countries[0].id : 1);
+      } catch (e) {
+        console.warn('[LocationChain] Failed to fetch countries for fast path, defaulting to ID 1:', e);
+        countryId = 1;
+      }
+    }
+
+    console.log(`[LocationChain] Fast path IDs: countryId=${countryId}, cityId=${input.resolvedCityId}, areaId=${input.resolvedAreaId}`);
 
     const cleanLat = latitude ? Number(latitude.toFixed(6)) : undefined;
     const cleanLng = longitude ? Number(longitude.toFixed(6)) : undefined;
 
     const locationPayload: UserLocation = {
+      country_id: countryId,
       city_id: input.resolvedCityId,
       area_id: input.resolvedAreaId,
       house_number: houseNumber ? Number(houseNumber) : undefined,

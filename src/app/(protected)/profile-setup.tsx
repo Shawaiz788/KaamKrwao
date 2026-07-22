@@ -25,12 +25,10 @@ import SimpleTextInput from '@/components/profile-setup/SimpleTextInput';
 import DropdownSelector from '@/components/profile-setup/DropdownSelector';
 import GpsCoordinatesField from '@/components/profile-setup/GpsCoordinatesField';
 import GenderSelector from '@/components/profile-setup/GenderSelector';
-import RoleSelector from '@/components/profile-setup/RoleSelector';
+import RoleSelector, { Role } from '@/components/profile-setup/RoleSelector';
 import MapPickerModal from '@/components/profile-setup/MapPickerModal';
 import { useProfileSubmit } from '@/hooks/useProfileSubmit';
 import styles from '@/styles/profileSetup.styles';
-
-type Role = 'client' | 'provider';
 
 export default function ProfileSetupScreen() {
   const insets = useSafeAreaInsets();

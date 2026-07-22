@@ -4,9 +4,9 @@ import { useAuth } from '@/context/auth';
 import { createUser, verifyUserOnBackend, loginUser } from '@/services/user';
 import { useMutation } from '@tanstack/react-query';
 import { getOrCreateLocationChain } from '@/services/location';
-import { USER_TYPE_CLIENT, USER_TYPE_PRO } from '@/constants/userTypes';
+import { USER_TYPE_ADMIN, USER_TYPE_CLIENT, USER_TYPE_PRO } from '@/constants/userTypes';
 
-type Role = 'client' | 'provider';
+type Role = 'client' | 'provider' | 'admin';
 
 interface UseProfileSubmitParams {
   user: any;
@@ -61,7 +61,12 @@ export function useProfileSubmit({
     const nameParts = fullName.trim().split(/\s+/);
     const first_name = nameParts[0] || '';
     const last_name = nameParts.slice(1).join(' ') || '';
-    const usertype_id = role === 'provider' ? USER_TYPE_PRO : USER_TYPE_CLIENT;
+    const usertype_id =
+      role === 'admin'
+        ? USER_TYPE_ADMIN
+        : role === 'provider'
+        ? USER_TYPE_PRO
+        : USER_TYPE_CLIENT;
 
     if (!selectedCity) throw new Error('Please select a city.');
     if (!area) throw new Error('Please select your Area / Sector.');
@@ -193,7 +198,9 @@ export function useProfileSubmit({
       }
 
       console.log('Profile setup saved successfully!');
-      if (createdUser && createdUser.usertype_id === USER_TYPE_PRO) {
+      if (createdUser && createdUser.usertype_id === USER_TYPE_ADMIN) {
+        router.replace('/(protected)/(admin)/dashboard');
+      } else if (createdUser && createdUser.usertype_id === USER_TYPE_PRO) {
         router.replace('/(protected)/(pro)/dashboard');
       } else {
         router.replace('/(protected)/(client)/home');

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 
-type Role = 'client' | 'provider';
+export type Role = 'client' | 'provider' | 'admin';
 
 interface RoleSelectorProps {
   role: Role;
@@ -28,7 +28,7 @@ export default function RoleSelector({ role, onSelectRole }: RoleSelectorProps) 
                 role === 'client' ? styles.roleTitleActive : styles.roleTitleInactive,
               ]}
             >
-              Client
+              Client (Customer)
             </Text>
             <Text
               style={[
@@ -64,7 +64,7 @@ export default function RoleSelector({ role, onSelectRole }: RoleSelectorProps) 
                 role === 'provider' ? styles.roleTitleActive : styles.roleTitleInactive,
               ]}
             >
-              Service Provider
+              Service Provider (Worker)
             </Text>
             <Text
               style={[
@@ -84,6 +84,42 @@ export default function RoleSelector({ role, onSelectRole }: RoleSelectorProps) 
             {role === 'provider' && <View style={styles.radioDot} />}
           </View>
         </Pressable>
+
+        {/* Admin Card */}
+        <Pressable
+          style={[
+            styles.roleCard,
+            role === 'admin' ? styles.roleCardActive : styles.roleCardInactive,
+          ]}
+          onPress={() => onSelectRole('admin')}
+        >
+          <View style={styles.roleTextContainer}>
+            <Text
+              style={[
+                styles.roleTitle,
+                role === 'admin' ? styles.roleTitleActive : styles.roleTitleInactive,
+              ]}
+            >
+              System Administrator (Admin)
+            </Text>
+            <Text
+              style={[
+                styles.roleDesc,
+                role === 'admin' ? styles.roleDescActive : styles.roleDescInactive,
+              ]}
+            >
+              I want to manage platform users, tasks, and system operations.
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.radioCircle,
+              role === 'admin' ? styles.radioCircleActive : styles.radioCircleInactive,
+            ]}
+          >
+            {role === 'admin' && <View style={styles.radioDot} />}
+          </View>
+        </Pressable>
       </View>
     </View>
   );
@@ -99,46 +135,45 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   roleContainer: {
-    gap: 16,
+    gap: 10,
   },
   roleCard: {
-    borderWidth: 1.5,
-    borderRadius: 16,
-    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1.5,
   },
   roleCardActive: {
+    backgroundColor: '#ECFDF5',
     borderColor: '#0B5A3E',
-    backgroundColor: 'rgba(11, 90, 62, 0.04)',
   },
   roleCardInactive: {
+    backgroundColor: '#FFFFFF',
     borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
   },
   roleTextContainer: {
     flex: 1,
+    paddingRight: 12,
     gap: 4,
   },
   roleTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
   roleTitleActive: {
     color: '#0B5A3E',
   },
   roleTitleInactive: {
-    color: '#374151',
+    color: '#111827',
   },
   roleDesc: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 16,
   },
   roleDescActive: {
-    color: '#0B5A3E',
-    opacity: 0.8,
+    color: '#047857',
   },
   roleDescInactive: {
     color: '#6B7280',
@@ -155,7 +190,7 @@ const styles = StyleSheet.create({
     borderColor: '#0B5A3E',
   },
   radioCircleInactive: {
-    borderColor: '#9CA3AF',
+    borderColor: '#D1D5DB',
   },
   radioDot: {
     width: 10,

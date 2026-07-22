@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,11 +6,18 @@ import {
   Pressable,
   Modal,
   Dimensions,
+  Image,
+  ActivityIndicator,
+  Alert,
+  ToastAndroid,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/auth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import { updateProfilePic } from '@/services/user';
 
 const { width } = Dimensions.get('window');
 
@@ -23,9 +30,12 @@ interface AdminDrawerPanelProps {
 export default function AdminDrawerPanel({ isOpen, onClose, activeRoute }: AdminDrawerPanelProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
+  const [isUploading, setIsUploading] = useState(false);
 
   if (!isOpen) return null;
+
+  const profilePic = user?.profile_pic;
 
   const navigateTo = (path: string) => {
     onClose();
@@ -36,6 +46,47 @@ export default function AdminDrawerPanel({ isOpen, onClose, activeRoute }: Admin
     onClose();
     await logout();
     router.replace('/(auth)/sign-in');
+  };
+
+  const handlePickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Gallery permissions are required to select a profile picture.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedUri = result.assets[0].uri;
+        setIsUploading(true);
+
+        const profilePicResponse = await updateProfilePic(selectedUri);
+        const resObj = profilePicResponse as any;
+        const rawUrl = resObj?.image ?? resObj?.profile_pic;
+        if (rawUrl) {
+          const BASE = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '');
+          const fullUrl = rawUrl.startsWith('http') ? rawUrl : `${BASE}${rawUrl}`;
+          await updateUser({ profile_pic: fullUrl });
+          if (Platform.OS === 'android') {
+            ToastAndroid.show('Profile picture updated!', ToastAndroid.SHORT);
+          } else {
+            Alert.alert('Success', 'Profile picture updated successfully!');
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error('[AdminDrawerPanel] Error updating profile picture:', err);
+      Alert.alert('Upload Failed', err?.message || 'Could not update profile picture.');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -69,9 +120,23 @@ export default function AdminDrawerPanel({ isOpen, onClose, activeRoute }: Admin
 
           {/* User Profile Card */}
           <View style={styles.userInfoBox}>
-            <View style={styles.userAvatarPlaceholder}>
-              <Ionicons name="person" size={20} color="#0B5A3E" />
-            </View>
+            <Pressable style={styles.avatarWrapper} onPress={handlePickImage} disabled={isUploading}>
+              {isUploading ? (
+                <View style={styles.userAvatarPlaceholder}>
+                  <ActivityIndicator size="small" color="#0B5A3E" />
+                </View>
+              ) : profilePic ? (
+                <Image source={{ uri: profilePic }} style={styles.userAvatar} />
+              ) : (
+                <View style={styles.userAvatarPlaceholder}>
+                  <Ionicons name="person" size={20} color="#6B7280" />
+                </View>
+              )}
+              <View style={styles.cameraBadge}>
+                <Ionicons name="camera" size={9} color="#FFFFFF" />
+              </View>
+            </Pressable>
+
             <View style={styles.userTextCol}>
               <Text style={styles.userName}>{user?.displayName || 'Administrator'}</Text>
               <View style={styles.roleTag}>
@@ -214,13 +279,38 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#A7F3D0',
   },
+  avatarWrapper: {
+    position: 'relative',
+  },
+  userAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#0B5A3E',
+  },
   userAvatarPlaceholder: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#FFFFFF',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#0B5A3E',
+  },
+  cameraBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#0B5A3E',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
   userTextCol: {
     flex: 1,

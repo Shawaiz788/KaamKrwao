@@ -331,12 +331,12 @@ export const getUserTasksFromBackend = async (userId: number): Promise<BackendTa
 };
 
 export const getOpenTasksFromBackend = async (): Promise<BackendTask[]> => {
-  console.log(`[getOpenTasksFromBackend] Dispatching request to URL: ${API_URL}/app/task/open/`);
+  //console.log(`[getOpenTasksFromBackend] Dispatching request to URL: ${API_URL}/app/task/open/`);
 
   const response = await fetchWithAuth(`${API_URL}/app/task/open/`);
   const responseText = await response.text();
-  console.log(`[getOpenTasksFromBackend] Response Status: ${response.status}`);
-  console.log(`[getOpenTasksFromBackend] Raw Response Body:`, responseText);
+  // console.log(`[getOpenTasksFromBackend] Response Status: ${response.status}`);
+  //console.log(`[getOpenTasksFromBackend] Raw Response Body:`, responseText);
 
   if (!response.ok) {
     if (response.status === 404) {
@@ -359,7 +359,7 @@ export const getOpenTasksFromBackend = async (): Promise<BackendTask[]> => {
       tasksArray = [data as BackendTask];
     }
 
-    console.log(`[getOpenTasksFromBackend] Parsed ${tasksArray.length} open tasks from backend payload.`);
+    // console.log(`[getOpenTasksFromBackend] Parsed ${tasksArray.length} open tasks from backend payload.`);
     return tasksArray;
   } catch (e) {
     console.error('[getOpenTasksFromBackend] JSON parsing error:', e);
