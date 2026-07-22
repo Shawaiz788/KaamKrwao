@@ -1,6 +1,7 @@
 module.exports = {
   expo: {
     name: "KaamKrwao",
+    scheme: "kaamkrwao",
     slug: "KaamKrwao",
     version: "1.0.0",
     orientation: "portrait",

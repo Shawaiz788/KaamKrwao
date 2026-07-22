@@ -74,41 +74,14 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
   const chatGreetingTimer = useRef<NodeJS.Timeout | null>(null);
   const chatReplyTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Handle user account switching & one-time on-login API task history sync
+  // Handle user account switching (loads from MMKV cache instantly without API calls)
   useEffect(() => {
     const userId = user?.id;
     if (!userId) {
       switchUser(null);
       return;
     }
-
     switchUser(userId);
-
-    if (!syncedUsersRef.current.has(userId)) {
-      syncedUsersRef.current.add(userId);
-      (async () => {
-        try {
-          console.log(`[PostJobProvider] Syncing task history from backend for User ID: ${userId}...`);
-          const backendTasks = await getUserTasksFromBackend(userId);
-          const mappedTasks: Task[] = (backendTasks || []).map((bt) => ({
-            id: bt.id ? bt.id.toString() : Date.now().toString(),
-            backend_id: bt.id,
-            category: bt.subject || 'General Task',
-            description: bt.body || '',
-            budget: bt.price || 0,
-            locationName: 'Specified Location',
-            paymentPref: 'Cash',
-            status: (bt.status_id === 4 ? 'completed' : bt.status_id === 5 ? 'cancelled' : 'searching') as any,
-            createdAt: bt.created_at || new Date().toISOString(),
-          }));
-
-          setTaskHistory(mappedTasks);
-          console.log(`[PostJobProvider] Successfully synced ${mappedTasks.length} tasks from backend for User ID: ${userId}.`);
-        } catch (err) {
-          console.warn('[PostJobProvider] On-login task history API sync failed, relying on MMKV cache:', err);
-        }
-      })();
-    }
   }, [user?.id]);
 
   // Clean up timers on unmount

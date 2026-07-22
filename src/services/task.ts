@@ -302,17 +302,17 @@ export const softDeleteTaskOnBackend = async (
 // };
 
 export const getUserTasksFromBackend = async (userId: number): Promise<BackendTask[]> => {
-  console.log(`[getUserTasksFromBackend] Fetching user tasks from exact endpoint: ${API_URL}/app/task/customer/${userId}/`);
+  //console.log(`[getUserTasksFromBackend] Fetching user tasks from exact endpoint: ${API_URL}/app/task/customer/${userId}/`);
   const url = `${API_URL}/app/task/customer/${userId}/`;
 
   const response = await fetchWithAuth(url);
   const responseText = await response.text();
-  console.log(`[getUserTasksFromBackend] Response Status: ${response.status}`);
-  console.log(`[getUserTasksFromBackend] Raw Response Body:`, responseText);
+  //console.log(`[getUserTasksFromBackend] Response Status: ${response.status}`);
+  //console.log(`[getUserTasksFromBackend] Raw Response Body:`, responseText);
 
   if (!response.ok) {
     if (response.status === 404) {
-      console.log(`[getUserTasksFromBackend] Backend returned 404 for user ${userId}. Returning empty array.`);
+      //  console.log(`[getUserTasksFromBackend] Backend returned 404 for user ${userId}. Returning empty array.`);
       return [];
     }
     throw new Error(`Failed to fetch user tasks. Status: ${response.status}. Response: ${responseText}`);
@@ -325,7 +325,7 @@ export const getUserTasksFromBackend = async (userId: number): Promise<BackendTa
     if (data && typeof data === 'object' && (data as any).id) return [data as BackendTask];
     return [];
   } catch (e) {
-    console.error('[getUserTasksFromBackend] JSON parse error:', e);
+    // console.error('[getUserTasksFromBackend] JSON parse error:', e);
     throw new Error(`Failed to parse user tasks JSON response: ${responseText}`);
   }
 };
