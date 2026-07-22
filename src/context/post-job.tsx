@@ -59,15 +59,24 @@ const PostJobContext = createContext<PostJobContextType>({
 
 export function PostJobProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const { taskHistory, activeTask, switchUser, setTaskHistory, addTaskToHistory, setActiveTask: setStoreActiveTask, clearHistory: clearTaskStoreHistory } = useTaskStore();
+
+  const setActiveTask = (taskOrUpdater: Task | null | ((prev: Task | null) => Task | null)) => {
+    if (typeof taskOrUpdater === 'function') {
+      const current = useTaskStore.getState().activeTask;
+      const next = taskOrUpdater(current);
+      setStoreActiveTask(next);
+    } else {
+      setStoreActiveTask(taskOrUpdater);
+    }
+  };
+
   const [bids, setBids] = useState<Bid[]>([]);
   const [activeChatMessages, setActiveChatMessages] = useState<ChatMessage[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isCreatingTask, setIsCreatingTask] = useState<boolean>(false);
   const [creationStep, setCreationStep] = useState<string>('');
 
-  // Persistent task history store from MMKV + Zustand
-  const { taskHistory, switchUser, setTaskHistory, addTaskToHistory, clearHistory: clearTaskStoreHistory } = useTaskStore();
   const syncedUsersRef = useRef<Set<number>>(new Set());
 
   const biddingTimer = useRef<NodeJS.Timeout | null>(null);
@@ -119,6 +128,11 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
     locationName: string,
     attachmentUris?: string[] | null
   ) => {
+    if (activeTask && (activeTask.status === 'searching' || activeTask.status === 'bidding' || activeTask.status === 'accepted')) {
+      console.warn('[PostJobProvider] Blocked creating second task: active task already in progress.');
+      return;
+    }
+
     const newTask: Task = {
       id: Date.now().toString(),
       category: categoryName,
@@ -263,13 +277,14 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
 
     const chosenBid: Bid = bidObj || bids.find((b) => b.id === bidId) || {
       id: bidId,
-      name: 'Professional Pro',
-      avatar: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
+      name: 'Service Provider',
+      avatar: '',
       rating: 4.8,
       reviewsCount: 45,
       price: activeTask.budget,
       timeEstimate: '15 min',
       message: 'Bid accepted',
+      is_profile_loading: true,
     };
 
     setActiveTask((prev) => {

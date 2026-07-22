@@ -355,6 +355,18 @@ export default function HomeView({ userName }: HomeViewProps) {
   };
 
   const handleRequestTask = () => {
+    if (activeTask && (activeTask.status === 'searching' || activeTask.status === 'bidding' || activeTask.status === 'accepted')) {
+      Alert.alert(
+        'Active Request in Progress',
+        'You already have an active job request in progress. Please complete or cancel your existing task before creating a new one.',
+        [
+          { text: 'View Active Request', onPress: () => setViewActiveTaskScreen(true) },
+          { text: 'OK', style: 'cancel' },
+        ]
+      );
+      return;
+    }
+
     const selectedCategoryObj = categories.find(c => c.name === activeCategory);
     if (!selectedCategoryObj) {
       Alert.alert('Selection Required', 'Please select a valid category.');

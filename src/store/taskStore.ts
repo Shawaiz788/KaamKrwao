@@ -9,15 +9,21 @@ const storage = createMMKV();
 export interface TaskStoreState {
   activeUserId: number | null;
   taskHistory: Task[];
+  activeTask: Task | null;
   switchUser: (userId: number | null) => void;
   setTaskHistory: (tasks: Task[]) => void;
   addTaskToHistory: (task: Task) => void;
   removeTaskFromHistory: (taskId: string) => void;
+  setActiveTask: (task: Task | null) => void;
   clearHistory: () => void;
 }
 
 const getUserStorageKey = (userId: number | null) => {
   return userId ? `task_history_user_${userId}` : null;
+};
+
+const getActiveTaskKey = (userId: number | null) => {
+  return userId ? `active_task_user_${userId}` : 'active_task_guest';
 };
 
 const loadHistoryFromMMKV = (userId: number | null): Task[] => {
@@ -42,13 +48,44 @@ const saveHistoryToMMKV = (userId: number | null, history: Task[]) => {
   }
 };
 
+const loadActiveTaskFromMMKV = (userId: number | null): Task | null => {
+  const key = getActiveTaskKey(userId);
+  try {
+    const json = storage.getString(key);
+    return json ? JSON.parse(json) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const saveActiveTaskToMMKV = (userId: number | null, task: Task | null) => {
+  const key = getActiveTaskKey(userId);
+  try {
+    if (task) {
+      storage.set(key, JSON.stringify(task));
+    } else {
+      storage.remove(key);
+    }
+  } catch (e) {
+    console.error(`[taskStore] Error saving activeTask for user ${userId}:`, e);
+  }
+};
+
 const useTaskStore = create<TaskStoreState>()((set, get) => ({
   activeUserId: null,
   taskHistory: [],
+  activeTask: null,
 
   switchUser: (userId: number | null) => {
     const loadedHistory = loadHistoryFromMMKV(userId);
-    set({ activeUserId: userId, taskHistory: loadedHistory });
+    const loadedActiveTask = loadActiveTaskFromMMKV(userId);
+    set({ activeUserId: userId, taskHistory: loadedHistory, activeTask: loadedActiveTask });
+  },
+
+  setActiveTask: (task: Task | null) => {
+    const userId = get().activeUserId;
+    saveActiveTaskToMMKV(userId, task);
+    set({ activeTask: task });
   },
 
   setTaskHistory: (tasks: Task[]) => {
@@ -89,7 +126,8 @@ const useTaskStore = create<TaskStoreState>()((set, get) => ({
     if (key) {
       storage.remove(key);
     }
-    set({ taskHistory: [] });
+    saveActiveTaskToMMKV(userId, null);
+    set({ taskHistory: [], activeTask: null });
   },
 }));
 

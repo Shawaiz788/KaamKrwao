@@ -25,6 +25,7 @@ import { useAuth } from '@/context/auth';
 import { useBiddingWebSocket } from '@/hooks/useBiddingWebSocket';
 import { useRouter } from 'expo-router';
 import { getTaskByIdFromBackend } from '@/services/task';
+import { getCustomerProfile } from '@/services/customer';
 import { createReview } from '@/services/review';
 import ReviewModal from '@/components/ReviewModal';
 
@@ -67,19 +68,33 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
 
   const bids: Bid[] = wsBids.map((b) => ({
     id: String(b.id),
-    name: b.user_name || `Professional #${b.user_id}`,
-    avatar: b.user_avatar || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
+    user_id: Number(b.user_id),
+    name: b.user_name || (b.is_profile_loading ? '' : `Professional #${b.user_id}`),
+    avatar: b.user_avatar || '',
     rating: b.user_rating || 4.8,
     reviewsCount: 45,
     price: b.price,
     timeEstimate: b.estimated_hours ? `${b.estimated_hours * 60} min` : '15 min',
     message: b.estimated_hours ? `Estimated duration: ${b.estimated_hours} hours` : 'Ready to perform task',
+    phone_number: b.phone_number,
+    is_profile_loading: Boolean(b.is_profile_loading),
   }));
 
   const handleAcceptBid = (bid: Bid) => {
     sendWsAcceptBid(bid.id);
     contextAcceptBid(bid.id, bid);
   };
+
+  // Sync acceptedBid when profile loading completes
+  useEffect(() => {
+    if (!activeTask?.acceptedBid || !activeTask.acceptedBid.is_profile_loading) return;
+    const matchingBid = bids.find(
+      (b) => String(b.id) === String(activeTask.acceptedBid?.id) || (b.user_id && activeTask.acceptedBid?.user_id && b.user_id === activeTask.acceptedBid.user_id)
+    );
+    if (matchingBid && !matchingBid.is_profile_loading) {
+      contextAcceptBid(matchingBid.id, matchingBid);
+    }
+  }, [bids, activeTask?.acceptedBid?.is_profile_loading]);
 
   const [chatVisible, setChatVisible] = useState(false);
   const [chatInput, setChatInput] = useState('');
@@ -114,7 +129,7 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
     };
 
     const initialTimer = setTimeout(checkTaskStatus, 10000);
-    const interval = setInterval(checkTaskStatus, 35000);
+    const interval = setInterval(checkTaskStatus, 60000);
 
     return () => {
       clearTimeout(initialTimer);
@@ -177,26 +192,36 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
     );
   }
 
+  useEffect(() => {
+    if (!activeTask && !isCreatingTask) {
+      onBack();
+    }
+  }, [activeTask, isCreatingTask]);
+
   if (!activeTask) {
-    return (
-      <View style={[styles.container, styles.center, { paddingTop: insets.top }]}>
-        <Text style={styles.errorText}>No active task found.</Text>
-        <Pressable style={styles.backBtnText} onPress={onBack}>
-          <Text style={styles.backBtnLabel}>Go Back Home</Text>
-        </Pressable>
-      </View>
-    );
+    return null;
   }
 
   const handleDeclineBid = (bidId: string) => {
     Alert.alert('Decline Bid', 'You have declined this offer.');
   };
 
-  const handleCall = (bid?: Bid) => {
-    const rawPhone = bid?.phone_number || '';
+  const handleCall = async (bid?: Bid) => {
+    let rawPhone = bid?.phone_number || '';
+    if (!rawPhone && bid?.user_id) {
+      try {
+        const p = await getCustomerProfile(bid.user_id);
+        if (p?.phone_number) rawPhone = p.phone_number;
+      } catch (e) {
+        console.warn('[ActiveTaskScreen] Error fetching worker phone number:', e);
+      }
+    }
     const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
-    const targetPhone = cleanPhone.length >= 7 ? cleanPhone : '923001234567';
-    const telUrl = `tel:${targetPhone}`;
+    if (!cleanPhone || cleanPhone.length < 7) {
+      Alert.alert('Phone Number Unavailable', 'The service provider has not added a contact phone number yet.');
+      return;
+    }
+    const telUrl = `tel:${cleanPhone}`;
 
     console.log('[ActiveTaskScreen] Opening Tel URL:', telUrl);
     Linking.openURL(telUrl).catch(() => {
@@ -204,12 +229,23 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
     });
   };
 
-  const handleWhatsApp = (bid?: Bid) => {
-    const rawPhone = bid?.phone_number || '';
+  const handleWhatsApp = async (bid?: Bid) => {
+    let rawPhone = bid?.phone_number || '';
+    if (!rawPhone && bid?.user_id) {
+      try {
+        const p = await getCustomerProfile(bid.user_id);
+        if (p?.phone_number) rawPhone = p.phone_number;
+      } catch (e) {
+        console.warn('[ActiveTaskScreen] Error fetching worker phone number:', e);
+      }
+    }
     const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
-    const targetPhone = cleanPhone.length >= 7 ? cleanPhone : '923001234567';
+    if (!cleanPhone || cleanPhone.length < 7) {
+      Alert.alert('WhatsApp Unavailable', 'The service provider has not added a contact phone number yet.');
+      return;
+    }
     const textMessage = `Hi ${bid?.name || 'there'}, I am contacting you regarding task "${activeTask?.category}".`;
-    const whatsappUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(textMessage)}`;
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(textMessage)}`;
 
     console.log('[ActiveTaskScreen] Opening WhatsApp URL:', whatsappUrl);
     Linking.openURL(whatsappUrl).catch(() => {
@@ -346,9 +382,24 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
                           <View style={[styles.skeletonLine, { width: 90, height: 12 }]} />
                         </View>
                         <View style={styles.bidPriceContainer}>
-                          <View style={[styles.skeletonLine, { width: 60, height: 16, marginBottom: 4 }]} />
-                          <View style={[styles.skeletonLine, { width: 45, height: 10 }]} />
+                          <Text style={styles.bidPrice}>Rs. {bid.price}</Text>
+                          <Text style={styles.bidTime}>{bid.timeEstimate} away</Text>
                         </View>
+                      </View>
+
+                      <View style={styles.bidActions}>
+                        <Pressable
+                          style={[styles.bidBtn, styles.declineBtn]}
+                          onPress={() => handleDeclineBid(bid.id)}
+                        >
+                          <Text style={styles.declineBtnText}>Decline</Text>
+                        </Pressable>
+                        <Pressable
+                          style={[styles.bidBtn, styles.acceptBtn]}
+                          onPress={() => handleAcceptBid(bid)}
+                        >
+                          <Text style={styles.acceptBtnText}>Accept Offer</Text>
+                        </Pressable>
                       </View>
                     </View>
                   );
@@ -404,47 +455,55 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
               <View style={{ flex: 1 }}>
                 <Text style={styles.alertSuccessTitle}>Professional Assigned!</Text>
                 <Text style={styles.alertSuccessText}>
-                  {activeTask.acceptedBid.name.split(' ')[0]} is arriving in ~{activeTask.acceptedBid.timeEstimate}.
+                  {activeTask.acceptedBid.is_profile_loading ? 'Service Provider' : activeTask.acceptedBid.name.split(' ')[0]} is arriving in ~{activeTask.acceptedBid.timeEstimate}.
                 </Text>
               </View>
             </View>
 
-            <View style={styles.proProfileCard}>
-              <Image source={{ uri: activeTask.acceptedBid.avatar }} style={styles.proLargeAvatar} />
-              <Text style={styles.proLargeName}>{activeTask.acceptedBid.name}</Text>
-              <View style={styles.proLargeRating}>
-                <Ionicons name="star" size={18} color="#F59E0B" style={{ marginRight: 4 }} />
-                <Text style={styles.proLargeRatingText}>
-                  {activeTask.acceptedBid.rating} ({activeTask.acceptedBid.reviewsCount} reviews)
-                </Text>
+            {activeTask.acceptedBid.is_profile_loading ? (
+              <View style={styles.proProfileCard}>
+                <View style={[styles.proLargeAvatar, styles.skeletonBox]} />
+                <View style={[styles.skeletonLine, { width: 140, height: 20, marginBottom: 8 }]} />
+                <View style={[styles.skeletonLine, { width: 100, height: 14, marginBottom: 16 }]} />
               </View>
+            ) : (
+              <View style={styles.proProfileCard}>
+                <Image source={{ uri: activeTask.acceptedBid.avatar }} style={styles.proLargeAvatar} />
+                <Text style={styles.proLargeName}>{activeTask.acceptedBid.name}</Text>
+                <View style={styles.proLargeRating}>
+                  <Ionicons name="star" size={18} color="#F59E0B" style={{ marginRight: 4 }} />
+                  <Text style={styles.proLargeRatingText}>
+                    {activeTask.acceptedBid.rating} ({activeTask.acceptedBid.reviewsCount} reviews)
+                  </Text>
+                </View>
 
-              <View style={styles.proContactRow}>
-                <Pressable
-                  style={[styles.contactCircleBtn, styles.contactPhone]}
-                  onPress={() => handleCall(activeTask.acceptedBid)}
-                >
-                  <Ionicons name="call" size={20} color="#FFFFFF" />
-                </Pressable>
+                <View style={styles.proContactRow}>
+                  <Pressable
+                    style={[styles.contactCircleBtn, styles.contactPhone]}
+                    onPress={() => handleCall(activeTask.acceptedBid)}
+                  >
+                    <Ionicons name="call" size={20} color="#FFFFFF" />
+                  </Pressable>
 
-                <Pressable
-                  style={[styles.contactCircleBtn, styles.contactWhatsApp]}
-                  onPress={() => handleWhatsApp(activeTask.acceptedBid)}
-                >
-                  <Ionicons name="logo-whatsapp" size={20} color="#FFFFFF" />
-                </Pressable>
+                  <Pressable
+                    style={[styles.contactCircleBtn, styles.contactWhatsApp]}
+                    onPress={() => handleWhatsApp(activeTask.acceptedBid)}
+                  >
+                    <Ionicons name="logo-whatsapp" size={20} color="#FFFFFF" />
+                  </Pressable>
 
-                <Pressable
-                  style={[styles.contactCircleBtn, styles.contactChat]}
-                  onPress={() => setChatVisible(true)}
-                >
-                  <Ionicons name="chatbubble" size={20} color="#FFFFFF" />
-                  {activeChatMessages.length > 0 && (
-                    <View style={styles.chatBadge} />
-                  )}
-                </Pressable>
+                  <Pressable
+                    style={[styles.contactCircleBtn, styles.contactChat]}
+                    onPress={() => setChatVisible(true)}
+                  >
+                    <Ionicons name="chatbubble" size={20} color="#FFFFFF" />
+                    {activeChatMessages.length > 0 && (
+                      <View style={styles.chatBadge} />
+                    )}
+                  </Pressable>
+                </View>
               </View>
-            </View>
+            )}
           </View>
         )}
       </ScrollView>

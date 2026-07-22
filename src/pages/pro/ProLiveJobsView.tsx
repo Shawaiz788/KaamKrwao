@@ -192,16 +192,18 @@ function SearchingState({ hasNoJobs }: { hasNoJobs: boolean }) {
 
 // ─── Main View ────────────────────────────────────────────────────────────────
 
+import useProTaskStore from '@/store/proTaskStore';
+
 export default function ProLiveJobsView() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
 
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [isOnline, setIsOnline] = useState(false);
     const [selectedJob, setSelectedJob] = useState<LiveJob | null>(null);
     const [sheetVisible, setSheetVisible] = useState(false);
-    const [assignedJob, setAssignedJob] = useState<LiveJob | null>(null);
+    const { activeProTask: assignedJob, setActiveProTask: setAssignedJob } = useProTaskStore();
     const [activeModalJob, setActiveModalJob] = useState<LiveJob | null>(null);
     const [activeModalVisible, setActiveModalVisible] = useState(false);
     const [isCancelledJob, setIsCancelledJob] = useState(false);
@@ -438,7 +440,21 @@ export default function ProLiveJobsView() {
             {!isOnline ? (
                 <OfflineState />
             ) : !isJobsAvailable ? (
-                <SearchingState hasNoJobs={hasNoJobs} />
+                <ScrollView
+                    style={{ flex: 1 }}
+                    contentContainerStyle={{ flexGrow: 1 }}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={isRefreshing}
+                            onRefresh={handleRefresh}
+                            tintColor={Colors.pro.accent}
+                            colors={[Colors.pro.accent]}
+                        />
+                    }
+                >
+                    <SearchingState hasNoJobs={hasNoJobs} />
+                </ScrollView>
             ) : (
                 <ScrollView
                     style={styles.jobList}
