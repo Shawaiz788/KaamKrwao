@@ -1,4 +1,4 @@
-# 🔐 Production-Ready Authentication, Task Hiring & Mapping Flow (Expo & React Native)
+# 🔐 Production-Ready Authentication, Admin Panel, Task Hiring & Mapping Flow (Expo & React Native)
 
 <table align="center">
 <tr>
@@ -16,11 +16,7 @@
 </tr>
 </table>
 
-
-
-
-
-A premium, secure, and modern hiring services application built for **Expo (SDK 54)** and **React Native**. Features a custom session system utilizing local encrypted storage, modular production-grade UI design, an interactive Leaflet mapping engine, and a real-time provider/client bidding and chat integration to hire verified professionals.
+A premium, secure, and modern hiring services & administration application built for **Expo (SDK 54)** and **React Native**. Features a custom session system utilizing local encrypted storage, modular production-grade architecture, a full 17-module Admin Control Panel, an instant-mount Leaflet mapping engine, persistent MMKV caching, progressive auth state transitions, and real-time provider/client bidding and chat integration.
 
 ---
 
@@ -32,80 +28,85 @@ Below are the core libraries and tools driving this project:
 | :--- | :--- | :--- |
 | **Expo SDK 54** | ![Expo](https://img.shields.io/badge/Expo-54-000000?style=for-the-badge&logo=expo&logoColor=white) | Cross-platform framework & developer tools |
 | **React Native** | ![React Native](https://img.shields.io/badge/React_Native-0.81.5-61DAFB?style=for-the-badge&logo=react&logoColor=black) | Native framework components |
-| **Expo Secure Store** | ![Secure Store](https://img.shields.io/badge/Expo_SecureStore-Session-000000?style=for-the-badge&logo=expo&logoColor=white) | Encrypted storage for session persistence |
+| **TanStack Query** | ![React Query](https://img.shields.io/badge/React_Query-TanStack_v5-FF4154?style=for-the-badge&logo=reactquery&logoColor=white) | Server state management, caching, and admin dashboard hooks |
+| **MMKV Storage** | ![MMKV](https://img.shields.io/badge/MMKV-Storage-2563EB?style=for-the-badge&logo=sqlite&logoColor=white) | Ultra-fast synchronous key-value storage for location & task history persistence |
+| **Expo Secure Store** | ![Secure Store](https://img.shields.io/badge/Expo_SecureStore-Session-000000?style=for-the-badge&logo=expo&logoColor=white) | Encrypted storage for JWT session persistence |
 | **React Native WebView** | ![WebView](https://img.shields.io/badge/WebView-React_Native-FF5733?style=for-the-badge&logo=react&logoColor=white) | Sandboxed engine for embedded Leaflet mapping |
 | **Leaflet & OSM** | ![Leaflet](https://img.shields.io/badge/Leaflet-WebView-10B981?style=for-the-badge&logo=leaflet&logoColor=white) | Interactive maps with visual pin offset (zero API keys needed) |
 | **Nominatim Search** | ![Nominatim](https://img.shields.io/badge/Nominatim-Search-3178C6?style=for-the-badge&logo=openstreetmap&logoColor=white) | Real-time OpenStreetMap address suggestions API |
-| **React Hook Form & Zod** | ![Zod](https://img.shields.io/badge/Zod-Validation-3E67B1?style=for-the-badge&logo=zod&logoColor=white) | Schema-validated fields & dynamic error constraints |
-| **React Query** | ![React Query](https://img.shields.io/badge/React_Query-TanStack-FF4154?style=for-the-badge&logo=reactquery&logoColor=white) | Server state management and mutation lifecycle hooks |
+| **Zustand** | ![Zustand](https://img.shields.io/badge/Zustand-State-764ABC?style=for-the-badge&logo=redux&logoColor=white) | Lightweight global state management for categories & tasks |
 
 ---
 
-## 🚀 Key Features
+## 🚀 Key Production Features
 
+*   **👑 Full 17-Module Admin Control Panel:** Complete production admin system supporting User Directories, Verification Toggles, Task Management, Bidding Analysis, Reviews & Ratings, Worker Earnings, Attachments Gallery, and Master Data CRUD (Categories, Countries, Cities, Areas, Locations, User Types, Payment Preferences, Statuses, Configs).
+*   **🔄 Progressive Step Auth Loading:** Sign In and Sign Up buttons feature real-time step-by-step progress state indicators (*"Authenticating credentials..."*, *"Fetching user profile..."*, *"Syncing session..."*, *"Redirecting..."*) with inline activity spinners.
+*   **🗺️ Instant-Mount Leaflet Map:** Zero-delay map mounting decoupled from data loading. Automatically initializes from MMKV local storage and smoothly animates camera position (`map.panTo`) when location updates resolve.
+*   **⚡ Smart Single Retry Engine:** Automated failure detection for missing categories or payment preferences. Displays a unified, single retry card in the home bottom sheet that selectively re-fetches only the specific missing API data.
 *   **🔒 Encrypted Session Syncing:** Encapsulated credentials persistence utilizing `expo-secure-store` with centralized session indicators logged in development.
-*   **🗺️ Precision Leaflet Alignment:** A pixel-projected alignment algorithm. It offsets map centers to match the visual center marker located at `35%` screen height (so it sits perfectly above the collapsible bottom sheet) with a single transition step to prevent double-move conflicts.
-*   **🔍 OpenStreetMap Nominatim Auto-Suggest:** Real-time input matching for addresses, pre-filling search inputs with currently active location labels to enable quick suggestions.
 *   **⏱️ Real-Time Task Bidding & Dispatch:** State-machine dispatcher matching loops:
     1. Triggers scanning radar upon booking to broadcast request to nearby service providers.
     2. Spawns professional bids and manages provider cost estimations.
     3. Handles real-time navigation map updates, professional profiles, and call routing.
 *   **💬 Responsive Chat Engine:** Integrated provider-to-client messaging system, supporting active conversations, instructions sharing, and scheduling.
-*   **⭐️ Slide-Out Navigation Drawer:** Premium sidebar overlay incorporating customer stars rating indicators, verified checkmarks, active request shortcuts, and history toggles.
+*   **⭐️ Slide-Out Navigation Drawer:** Premium sidebar overlay incorporating customer stars rating indicators, background-prefetched review counts, verified checkmarks, and task history toggles.
 
 ---
 
-## 👥 Dual-User Ecosystem: Customers & Professionals
+## 👥 Ecosystem: Customers, Professionals & Admin
 
-KaamKarwao is built as a dual-role service platform with custom user experiences tailored specifically to the needs of both **Customers (Clients)** seeking on-demand help and **Professionals (Service Providers)** offering their specialized expertise. 
+KaamKarwao is built as a complete multi-role platform with custom user experiences tailored specifically for:
 
-The application utilizes the `usertype_id` from the backend to dynamically handle navigation, styling theme, maps, and state management.
+1. **Customers (Clients)** — Seeking on-demand specialized home & technical services.
+2. **Professionals (Service Providers)** — Offering expertise, receiving bids, and managing daily earnings.
+3. **Administrators** — Complete oversight, verification control, master data management, and system analytics.
 
 ---
 
 ### 👤 1. Customers (Clients)
 
-The customer app experience centers around simplicity, precision, and speed. It enables clients to quickly find verified professionals near them.
+The customer app experience centers around simplicity, precision, and speed.
 
-#### 🌟 Key Features & Interface
-*   **Location-Search & Pin-Adjustment:** Integrates OpenStreetMap (OSM) Nominatim API for real-time address search suggestions. Uses an interactive Leaflet WebView with a custom visual pin adjuster that maps coordinates with visual offset calibration (visually centering the marker at 35% screen height above the bottom action sheet).
-*   **Task Request Dispatch:** A multi-step hiring radar that broadcasts service requirements to nearby service providers in real-time.
-*   **Bid Comparison Dashboard:** Displays incoming bids from professionals. Shows service estimates, professional profiles, background verification status, average ratings (star icons), and review counters.
-*   **Active Booking & Tracking:** Once a bid is accepted, visual tracking of the professional's live progress is displayed on the map, alongside direct phone calling controls and real-time chat.
-*   **Navigation & Custom Drawer:** A customized slide-out panel ([DrawerPanel.tsx](file:///c:/Users/Fahad/Documents/KaamKarwao/src/components/home/DrawerPanel.tsx)) that shows customer profile details, average rating stars, verification checkmarks, and task history toggles.
-
-#### 🗺️ Typical Customer Journey
-1.  **Welcome & Registration:** Sign-in or register, specifying a Client role (`usertype_id = 2`).
-2.  **Locating the Job:** Locate the job address using search or manually adjust the location pin by panning the map.
-3.  **Posting the Task:** Select a service category (e.g., Electrician, AC Repair, Plumbing) and tap **Find Professional** to launch the task broadcast.
-4.  **Reviewing Live Offers:** The customer's screen displays a radar scanning screen. As nearby professionals bid on the task, custom cards with their bids, ratings, and profile details appear.
-5.  **Hiring & Coordination:** Customer accepts a bid. The app displays the active professional's details and launches the real-time chat interface to share instructions or schedule timing.
+#### 🌟 Features & Interface
+*   **Instant Map & MMKV Location Persistence:** Zero-delay Leaflet map mount powered by MMKV device storage with Nominatim search integration.
+*   **Task Request Dispatch:** Multi-step hiring radar broadcasting service requests to nearby service providers in real-time.
+*   **Bid Comparison Dashboard:** Displays incoming bids with provider profiles, verification badges, ratings, and estimates.
+*   **Smart Single Retry:** Unified error handler banner that detects missing API dependencies and re-fetches only failed items with one tap.
 
 ---
 
 ### ⚡ 2. Professionals (Service Providers)
 
-The professional app experience acts as a mobile command center, optimized for background tasks monitoring, job queue inspection, bidding, and financial tracking.
+Acts as a mobile command center for job discovery, bidding, and financial tracking.
 
-#### 🌟 Key Features & Interface
-*   **Pro Dashboard Command Center:** Displays weekly earnings report (via a custom daily bar chart), active stats (weekly earnings, total earnings, completed jobs count, and average rating stars), and quick access to live job listings.
-*   **Online/Offline Toggle:** A status pill indicator that lets professionals toggle their online status. Going online establishes a persistent WebSocket connection to receive incoming job requests in real-time.
-*   **WebSocket Live-Job Feed:** Real-time updates displaying newly requested local jobs in proximity, indicating the customer's name, rating, job description, target budget, and estimated distance.
-*   **Bidding Bottom Sheet:** A highly responsive interaction interface that allows the professional to view the detailed job location and submit custom service estimates (bids).
-*   **Earnings & History Reports:** In-depth breakdown of completed tasks, customer reviews, and historical financial performance.
-
-#### 🛠️ Typical Professional Journey
-1.  **Profile Setup & Verification:** Register as a Professional (`usertype_id = 1`) and complete the profile details (name, skill set, experience).
-2.  **Going Online:** Toggle online status from the dashboard to signal availability to the backend dispatcher.
-3.  **Inspecting Live Opportunities:** Explore the live jobs tab. When a customer nearby creates a job, a live card appears showing details, location, and distance.
-4.  **Bidding on Jobs:** Tap a job card to open the job details. Enter a competitive estimate/price bid and submit it.
-5.  **Job Execution:** If the customer accepts the bid, a real-time notification updates the state. The app automatically navigates the professional to the active task view, displaying customer directions and initiating a live chat session to coordinate.
+#### 🌟 Features & Interface
+*   **Pro Dashboard Command Center:** Displays weekly earnings report (via custom bar charts), active stats (weekly earnings, total earnings, completed jobs count, ratings), and quick access to live job listings.
+*   **Online/Offline Toggle:** Status pill establishing persistent WebSocket connections to receive incoming job requests in real-time.
+*   **WebSocket Live-Job Feed:** Real-time updates displaying newly requested local jobs in proximity.
+*   **Bidding Bottom Sheet:** Responsive interaction interface allowing professionals to submit custom estimates.
 
 ---
 
-### 🔄 Real-Time Bid & Dispatch Interaction Model
+### 👑 3. Administrator Control Panel
 
-The collaboration between Customers and Professionals is driven by a real-time state machine connected through WebSockets:
+A production-grade, modular administration suite covering 17 system domains under strict `< 500 lines` per file architecture:
+
+| Admin Module | Location | Core Functionality |
+| :--- | :--- | :--- |
+| **Dashboard** | `AdminDashboardView.tsx` | High-level KPI aggregations (Total Tasks, Open Bids, Active Users, Total Ratings) via TanStack Query. |
+| **User Directory** | `AdminUsersView.tsx` | Comprehensive user table with search, role filters, and profile details modal. |
+| **Pro Details** | `AdminProDetailView.tsx` | Verification status toggle, earnings inspection, assigned tasks, and reviews breakdown per provider. |
+| **Task Operations** | `AdminTasksView.tsx` | Filterable list of all platform tasks with detailed task inspection modals and deletion dialogs. |
+| **Bidding Breakdown** | `AdminBidsView.tsx` | Live bid inspection per task with estimate breakdowns. |
+| **Reviews & Ratings** | `AdminReviewsView.tsx` | Moderate, search, inspect, and delete platform reviews. |
+| **Worker Earnings** | `AdminEarningsView.tsx` | Track and manage financial earnings records for service providers. |
+| **Attachment Gallery** | `AdminAttachmentsView.tsx` | Inspect media attachments uploaded across task requests. |
+| **Master Data Manager** | `AdminMasterDataView.tsx` | Full CRUD suite for 9 core tables: Categories, Countries, Cities, Areas, Locations, User Types, Payment Prefs, Statuses, Configs. |
+
+---
+
+## 🔄 Real-Time Bid & Dispatch Interaction Model
 
 ```mermaid
 sequenceDiagram
@@ -135,135 +136,39 @@ sequenceDiagram
 
 ---
 
-## 📐 Architecture & Routing Flow
-
-```mermaid
-graph TD
-    A[User Opens App] --> B{Session Active?}
-    
-    %% Welcome/Root Flow
-    B -- No --> C[index.tsx Welcome Screen]
-    C --> D[Go to Sign In]
-    C --> E[Go to Sign Up]
-    
-    %% Sign Up & Verification Flow
-    E --> F[sign-up.tsx Screen]
-    F -->|Submit Details| G[Backend Creates Account]
-    G -->|Send Verification Code| H[Redirect to verify.tsx]
-    H -->|Submit OTP Code| I[Verify Code & Activate Session]
-    I -->|Redirect| J[protected/tabs/home Route]
-    
-    %% Sign In & SSO Flow
-    D --> K[sign-in.tsx Screen]
-    K --> L{Select Login Method}
-    L -- Phone & Password --> M[Backend Credential Login]
-    L -- Google SSO --> N[Google SSO Integration]
-    
-    M -- Success --> J
-    N -- Success --> J
-    
-    %% Protected Route Guards
-    B -- Yes --> J
-    
-    %% Home Dashboard Flow
-    J --> O[HomeView Component]
-    O -->|Slide Out| P[DrawerPanel sidebar]
-    O -->|Tap Search Address| Q[SearchLocationModal autocomplete]
-    Q -->|Select Address| O
-    Q -->|Tap Map Adjuster| R[PinAdjusterModal fine-tuning]
-    R -->|Confirm Done| O
-    
-    O -->|Request Task| S[Create Task -> PostJobProvider]
-    S -->|Simulate Bidding| T[Search -> Bid -> Accepted]
-    T -->|Show Live Details| U[ActiveTaskScreen & Chat View]
-```
-
----
-
 ## 📁 Repository Structure
 
 ```
-├── api/                        # REST API clients (Axios/Fetch endpoints)
-│   ├── area.ts                 # Cascading Area resolution endpoints
-│   ├── city.ts                 # City query client hooks
-│   ├── location.ts             # cascade locations creator (getOrCreateLocationChain)
-│   └── user.ts                 # Login & Registration authentication endpoints
 ├── src/
 │   ├── app/                    # File-Based Navigation (Expo Router)
-│   │   ├── (auth)/             # Public login/signup routes
-│   │   │   ├── sign-in.tsx     # Zod validated credentials login & Google SSO
-│   │   │   ├── sign-up.tsx     # Account registration flow
-│   │   │   └── verify.tsx      # Email verification input view
-│   │   ├── (protected)/        # Session-guarded private route group
-│   │   │   ├── (tabs)/         # Bottom tabs navigator stack
-│   │   │   │   ├── _layout.tsx # Tabs layouts styling (home/profile tabs)
-│   │   │   │   ├── home.tsx    # Mounts HomeView dashboard
-│   │   │   │   └── profile.tsx # Mounts ProfileView settings
-│   │   │   ├── _layout.tsx     # Auth validation session guard
-│   │   │   └── profile-setup.tsx # Cascade profile creation flow
-│   │   ├── _layout.tsx         # App wrapper mapping AuthProvider
-│   │   └── index.tsx           # Initial session router redirector
+│   │   ├── (auth)/             # Progressive login & registration screens
+│   │   ├── (protected)/        # Auth-guarded tabs & profile setup
 │   ├── components/             # Reusable UI Controls
-│   │   ├── CustomButton.tsx    # Premium pressable button component
-│   │   ├── CustomInput.tsx     # Typed validation field inputs
-│   │   ├── SignInWith.tsx      # SSO layout pre-wire
-│   │   └── home/               # Modularized Dashboard Components
-│   │       ├── DrawerPanel.tsx        # Slide-out navigation list & ratings
-│   │       ├── HomeView.tsx           # Core Leaflet map dashboard
-│   │       ├── PinAdjusterModal.tsx   # Fine-tune Leaflet WebView overlay
-│   │       ├── ProfileView.tsx        # Profile settings item listing
-│   │       ├── SearchLocationModal.tsx # Nominatim OS Address autocomplete
-│   │       └── TaskHistoryModal.tsx   # Request logs tables
-│   ├── provider/               # React Context Providers
-│   │   ├── auth.tsx            # Global SecureStore session mapping
-│   │   └── post-job.tsx        # Task dispatch state machine & chat context
-```
-
----
-
-## 📝 Code Architectures & Mechanics
-
-### 1. Leaflet Coordinate-Offset Alignment
-To position target coordinates directly under a marker pin visual offset at `35%` of screen height, the code projects the coordinate to pixels at zoom 17, applies the offset difference, and unprojects it back to coordinates. This performs the alignment in a single `setView` transaction, preventing overlapping animation race conditions:
-
-```typescript
-const targetLatLng = L.latLng(coords.latitude, coords.longitude);
-const targetPoint = map.project(targetLatLng, 17);
-const size = map.getSize();
-// Offset calculation from center (50%) to visual target (35%)
-const offset = L.point(0, size.y * (0.5 - 0.35));
-const centerPoint = targetPoint.add(offset);
-const centerLatLng = map.unproject(centerPoint, 17);
-
-// Single view alignment
-map.setView(centerLatLng, 17);
-```
-
-### 2. Provider Task Booking & Dispatch Lifecycle
-The `PostJobProvider` manages active service request states, handling search broadcasts, bid discovery, professional acceptance, and coordinate-matching loops:
-
-*   **Searching Stage:** Emits radar sweeps.
-*   **Bidding Stage:** Spawns provider offers (with estimates) with animated buttons.
-*   **Active Booking:** Triggers full-screen professional profile sheets showing contact cards and ratings.
-*   **Chat Simulator:** Automatically processes client messages and fires back responses:
-
-```typescript
-const triggerProfessionalResponse = (userMsg: string) => {
-  setTimeout(() => {
-    const replies = [
-      "Understood, I am on my way.",
-      "Perfect. I am driving right now, will arrive soon.",
-      "I have arrived at the location, see you shortly."
-    ];
-    const replyMsg: ChatMessage = {
-      id: Date.now().toString(),
-      text: replies[Math.floor(Math.random() * replies.length)],
-      sender: 'professional',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-    setActiveChatMessages((prev) => [...prev, replyMsg]);
-  }, 1500);
-};
+│   │   ├── admin/              # Modular Admin components (StatCard, ConfirmDialog, etc.)
+│   │   ├── client/             # HomeMapView, HomeBottomSheet, DrawerPanel, SearchLocationModal
+│   ├── hooks/                  # Custom React Hooks
+│   │   ├── admin/              # useAdminDashboard TanStack Query hook
+│   │   └── useHomeViewLocation.ts # Location & Leaflet geocoding state
+│   ├── pages/                  # Full Screen Views
+│   │   ├── admin/              # 10 Dedicated Admin Module Screens
+│   │   ├── client/             # HomeView, ActiveTaskScreen
+│   ├── services/               # Clean API Service Layer (Modular .ts files)
+│   │   ├── adminUsers.ts       # User profiles & verification API
+│   │   ├── adminTasks.ts       # Admin tasks CRUD API
+│   │   ├── adminReviews.ts     # Reviews & ratings API
+│   │   ├── adminEarnings.ts    # Worker earnings CRUD API
+│   │   ├── attachment.ts       # Media attachments API
+│   │   ├── bidding.ts          # Bidding breakdown API
+│   │   ├── masterData.ts       # Master lookup tables facade
+│   │   └── fetchClient.ts      # Auth header injector fetch client
+│   ├── store/                  # Global State Stores
+│   │   ├── categoryStore.ts    # Zustand category store
+│   │   └── taskStore.ts        # MMKV persisted task store
+│   ├── types/                  # TypeScript Interfaces
+│   │   ├── admin.ts            # Admin domain data models
+│   │   └── index.ts            # App domain models
+│   └── utils/                  # Utility Helpers
+│       └── locationCache.ts    # MMKV synchronous location cache
 ```
 
 ---
