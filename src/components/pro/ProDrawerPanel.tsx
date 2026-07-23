@@ -35,8 +35,8 @@ interface ProDrawerPanelProps {
 }
 
 const MENU_ITEMS: { key: DrawerRoute; label: string; icon: string }[] = [
-    { key: 'dashboard', label: 'Dashboard', icon: 'home-outline' },
     { key: 'live-jobs', label: 'Live Jobs', icon: 'flash-outline' },
+    { key: 'dashboard', label: 'Dashboard', icon: 'home-outline' },
     { key: 'job-history', label: 'Job History', icon: 'time-outline' },
     { key: 'earnings', label: 'Earnings', icon: 'bar-chart-outline' },
     { key: 'verification', label: 'Verification', icon: 'shield-checkmark-outline' },

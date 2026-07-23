@@ -30,7 +30,7 @@ export default function WelcomeScreen() {
       } else if (user.usertype_id === USER_TYPE_ADMIN) {
         router.replace('/(protected)/(admin)/dashboard');
       } else if (user.usertype_id === USER_TYPE_PRO) {
-        router.replace('/(protected)/(pro)/dashboard');
+        router.replace('/(protected)/(pro)/live-jobs');
       } else {
         router.replace('/(protected)/(client)/home');
       }

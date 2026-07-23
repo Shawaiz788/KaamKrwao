@@ -20,7 +20,7 @@ export default function AuthLayout() {
             return <Redirect href={'/(protected)/profile-setup'} />;
         }
         if (user.usertype_id === USER_TYPE_PRO) {
-            return <Redirect href={'/(protected)/(pro)/dashboard'} />;
+            return <Redirect href={'/(protected)/(pro)/live-jobs'} />;
         }
         return <Redirect href={'/(protected)/(client)/home'} />;
     }
