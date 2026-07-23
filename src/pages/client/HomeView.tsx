@@ -55,7 +55,7 @@ export default function HomeView({ userName }: HomeViewProps) {
   // Custom Hook for Map & Geocoding Logic
   const {
     mapCoords, setMapCoords, initialCoords, setInitialCoords,
-    loadingLocation, setLoadingLocation, address, setAddress,
+    loadingLocation, setLoadingLocation, isGeocoding, address, setAddress,
     searchModalVisible, setSearchModalVisible, pinAdjusterVisible, setPinAdjusterVisible,
     searchQuery, searchResults, searchingLocation,
     locStreet, setLocStreet, locArea, setLocArea, locCity, setLocCity,
@@ -233,18 +233,16 @@ export default function HomeView({ userName }: HomeViewProps) {
     return () => unsubscribe();
   }, []);
 
-  // Home Data Bootstrapper (Categories, Payment Prefs, Saved Location)
+  // Home Data Bootstrapper (Categories & Payment Prefs)
   useEffect(() => {
     let isMounted = true;
 
     const bootstrapHomeData = async () => {
       setLoadingPaymentPrefs(true);
-      setLoadingLocation(true);
 
-      const [catResult, paymentResult, locResult] = await Promise.allSettled([
+      const [catResult, paymentResult] = await Promise.allSettled([
         ensureCategories(),
         getPaymentPreferencesFromBackend(),
-        user && user.location_id ? getLocationById(user.location_id) : Promise.resolve(null),
       ]);
 
       if (!isMounted) return;
@@ -267,38 +265,7 @@ export default function HomeView({ userName }: HomeViewProps) {
       }
       setLoadingPaymentPrefs(false);
 
-      let locationLoaded = false;
-      if (locResult.status === 'fulfilled' && locResult.value) {
-        const savedLoc = locResult.value;
-        if (savedLoc && savedLoc.latitude !== undefined && savedLoc.longitude !== undefined) {
-          const savedCoords = {
-            latitude: Number(savedLoc.latitude),
-            longitude: Number(savedLoc.longitude),
-          };
-          setMapCoords(savedCoords);
-          setInitialCoords(savedCoords);
-          if (savedLoc.formatted_address) {
-            setAddress(savedLoc.formatted_address);
-          } else {
-            reverseGeocode(savedCoords.latitude, savedCoords.longitude);
-          }
-          setLoadingLocation(false);
-          locationLoaded = true;
-        }
-      }
-
-      if (!locationLoaded) {
-        try {
-          const defaultCoords = { latitude: 31.5204, longitude: 74.3587 };
-          setMapCoords(defaultCoords);
-          setInitialCoords(defaultCoords);
-          setAddress('Lahore, Pakistan (Default)');
-        } finally {
-          setLoadingLocation(false);
-        }
-      }
-
-      // Background non-blocking pre-fetch of user reviews and ratings after primary bootstrapping
+      // Background non-blocking pre-fetch of user reviews and ratings
       if (user?.id) {
         const fetchBackgroundReviews = async (userId: number) => {
           try {
@@ -314,6 +281,60 @@ export default function HomeView({ userName }: HomeViewProps) {
     bootstrapHomeData();
     return () => { isMounted = false; };
   }, []);
+
+  // Independent Location Sync from Profile / Backend Location API
+  const [isLocationSyncing, setIsLocationSyncing] = useState(false);
+
+  useEffect(() => {
+    if (!user?.location_id) return;
+    let isMounted = true;
+    setIsLocationSyncing(true);
+
+    getLocationById(user.location_id)
+      .then((savedLoc) => {
+        if (!isMounted || !savedLoc) return;
+        if (savedLoc.latitude !== undefined && savedLoc.longitude !== undefined) {
+          const lat = Number(savedLoc.latitude);
+          const lng = Number(savedLoc.longitude);
+          const savedCoords = { latitude: lat, longitude: lng };
+
+          setMapCoords(savedCoords);
+
+          // Update Leaflet map view
+          if (webViewRef.current) {
+            const jsCode = `
+              if (typeof map !== 'undefined' && map) {
+                var targetLatLng = L.latLng(${lat}, ${lng});
+                var targetPoint = map.project(targetLatLng, 15);
+                var size = map.getSize();
+                var offset = L.point(0, size.y * (0.5 - 0.35));
+                var centerPoint = targetPoint.add(offset);
+                var centerLatLng = map.unproject(centerPoint, 15);
+                map.setView(centerLatLng, 15);
+              }
+              true;
+            `;
+            webViewRef.current.injectJavaScript(jsCode);
+          }
+
+          if (savedLoc.formatted_address) {
+            setAddress(savedLoc.formatted_address);
+          } else {
+            reverseGeocode(lat, lng);
+          }
+        }
+      })
+      .catch((err) => {
+        console.log('[HomeView] Independent location fetch non-fatal error:', err);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLocationSyncing(false);
+        }
+      });
+
+    return () => { isMounted = false; };
+  }, [user?.location_id]);
 
   const handleAddAttachment = async () => {
     const remaining = 3 - attachments.length;
@@ -464,6 +485,8 @@ export default function HomeView({ userName }: HomeViewProps) {
     <View style={styles.container}>
       <HomeMapView
         loadingLocation={loadingLocation}
+        isGeocoding={isGeocoding}
+        isLocationSyncing={isLocationSyncing}
         initialCoords={initialCoords}
         webViewRef={webViewRef}
         handleMapMessage={handleMapMessage}

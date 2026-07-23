@@ -69,6 +69,8 @@ export const getLeafletHtml = (lat: number, lng: number) => `
 
 interface HomeMapViewProps {
   loadingLocation: boolean;
+  isGeocoding?: boolean;
+  isLocationSyncing?: boolean;
   initialCoords: { latitude: number; longitude: number } | null;
   webViewRef: React.RefObject<any>;
   handleMapMessage: (event: any) => void;
@@ -85,6 +87,8 @@ interface HomeMapViewProps {
 
 export default function HomeMapView({
   loadingLocation,
+  isGeocoding,
+  isLocationSyncing,
   initialCoords,
   webViewRef,
   handleMapMessage,
@@ -102,15 +106,7 @@ export default function HomeMapView({
     <>
       {/* 1. MAP BACKGROUND */}
       <View style={styles.mapContainer}>
-        {loadingLocation || !initialCoords ? (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#10B981" />
-            <Text style={styles.loadingText}>Getting your GPS location...</Text>
-            <Text style={[styles.loadingText, { fontSize: 11, color: '#9CA3AF', marginTop: 4 }]}>
-              Please wait up to 15 seconds
-            </Text>
-          </View>
-        ) : (
+        {initialCoords && (
           <WebView
             ref={webViewRef}
             style={styles.map}
@@ -122,11 +118,14 @@ export default function HomeMapView({
         )}
 
         {/* 2. MAP OVERLAY PIN IN MIDDLE */}
-        {!loadingLocation && initialCoords && (
-          <View style={styles.centerMarkerContainer} pointerEvents="none">
-            <Ionicons name="pin" size={40} color="#EF4444" style={styles.pinIcon} />
-          </View>
-        )}
+        <View style={styles.centerMarkerContainer} pointerEvents="none">
+          {(isLocationSyncing || isGeocoding) && (
+            <View style={styles.pinLoadingBadge}>
+              <ActivityIndicator size="small" color="#10B981" />
+            </View>
+          )}
+          <Ionicons name="pin" size={40} color="#EF4444" style={styles.pinIcon} />
+        </View>
       </View>
 
       {/* NO INTERNET CONNECTION FLOATING INDICATOR */}
@@ -148,8 +147,12 @@ export default function HomeMapView({
       {/* FLOATING LOCATION RE-CENTER BUTTON */}
       {!loadingLocation && initialCoords && (
         <Animated.View style={locateBtnStyle}>
-          <Pressable onPress={reCenterMap} style={styles.locateBtnPressable}>
-            <Ionicons name="locate" size={24} color="#10B981" />
+          <Pressable onPress={reCenterMap} style={styles.locateBtnPressable} disabled={isGeocoding}>
+            {isGeocoding ? (
+              <ActivityIndicator size="small" color="#10B981" />
+            ) : (
+              <Ionicons name="locate" size={24} color="#10B981" />
+            )}
           </Pressable>
         </Animated.View>
       )}

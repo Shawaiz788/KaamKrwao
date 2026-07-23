@@ -44,6 +44,18 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
   },
+  pinLoadingBadge: {
+    position: 'absolute',
+    top: -24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
+  },
   pinShadow: {
     position: 'absolute',
     bottom: -2,

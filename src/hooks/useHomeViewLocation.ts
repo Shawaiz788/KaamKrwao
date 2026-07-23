@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Alert, Keyboard } from 'react-native';
 import * as Location from 'expo-location';
 import { getLocationById } from '@/services/location';
+import { getCachedLocation, setCachedLocation, CachedLocation } from '@/utils/locationCache';
 
 interface UseHomeViewLocationProps {
   user: any;
@@ -9,13 +10,19 @@ interface UseHomeViewLocationProps {
 }
 
 export function useHomeViewLocation({ user, webViewRef }: UseHomeViewLocationProps) {
+  const cached = getCachedLocation(user?.id);
+
   const [mapCoords, setMapCoords] = useState({
-    latitude: 31.5204,
-    longitude: 74.3587,
+    latitude: cached.latitude,
+    longitude: cached.longitude,
   });
-  const [initialCoords, setInitialCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [loadingLocation, setLoadingLocation] = useState(true);
-  const [address, setAddress] = useState('Fetching location...');
+  const [initialCoords, setInitialCoords] = useState<{ latitude: number; longitude: number }>({
+    latitude: cached.latitude,
+    longitude: cached.longitude,
+  });
+  const [loadingLocation, setLoadingLocation] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [address, setAddress] = useState(cached.address || 'Lahore, Pakistan');
 
   // Search & Adjust Location States
   const [searchModalVisible, setSearchModalVisible] = useState(false);
@@ -25,9 +32,9 @@ export function useHomeViewLocation({ user, webViewRef }: UseHomeViewLocationPro
   const [searchingLocation, setSearchingLocation] = useState(false);
 
   // Bottom sheet direct location fields (when expanded)
-  const [locStreet, setLocStreet] = useState('');
-  const [locArea, setLocArea] = useState('');
-  const [locCity, setLocCity] = useState('');
+  const [locStreet, setLocStreet] = useState(cached.street || '');
+  const [locArea, setLocArea] = useState(cached.area || '');
+  const [locCity, setLocCity] = useState(cached.city || '');
   const [locSearchLoading, setLocSearchLoading] = useState(false);
 
   const reverseGeocode = async (lat: number, lng: number) => {
@@ -41,20 +48,39 @@ export function useHomeViewLocation({ user, webViewRef }: UseHomeViewLocationPro
           item.district || item.subregion,
           item.city,
         ].filter(Boolean);
-        setAddress(parts.join(', ') || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+        const resolvedAddress = parts.join(', ') || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        const streetVal = item.street || item.name || '';
+        const areaVal = item.district || item.subregion || '';
+        const cityVal = item.city || '';
 
-        setLocStreet(item.street || item.name || '');
-        setLocArea(item.district || item.subregion || '');
-        setLocCity(item.city || '');
+        setAddress(resolvedAddress);
+        setLocStreet(streetVal);
+        setLocArea(areaVal);
+        setLocCity(cityVal);
+
+        // Persist to MMKV
+        setCachedLocation({
+          latitude: lat,
+          longitude: lng,
+          address: resolvedAddress,
+          street: streetVal,
+          area: areaVal,
+          city: cityVal,
+        }, user?.id);
       } else {
-        setAddress(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+        const fallbackAddr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        setAddress(fallbackAddr);
+        setCachedLocation({ latitude: lat, longitude: lng, address: fallbackAddr }, user?.id);
       }
     } catch (e) {
-      setAddress(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+      const fallbackAddr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      setAddress(fallbackAddr);
+      setCachedLocation({ latitude: lat, longitude: lng, address: fallbackAddr }, user?.id);
     }
   };
 
   const reCenterMap = async () => {
+    setIsGeocoding(true);
     try {
       let loc = null;
       try {
@@ -92,9 +118,11 @@ export function useHomeViewLocation({ user, webViewRef }: UseHomeViewLocationPro
         `;
         webViewRef.current.injectJavaScript(jsCode);
       }
-      reverseGeocode(newCoords.latitude, newCoords.longitude);
+      await reverseGeocode(newCoords.latitude, newCoords.longitude);
     } catch (err) {
       Alert.alert('Location Error', 'Unable to fetch current location.');
+    } finally {
+      setIsGeocoding(false);
     }
   };
 
@@ -334,6 +362,7 @@ export function useHomeViewLocation({ user, webViewRef }: UseHomeViewLocationPro
     setInitialCoords,
     loadingLocation,
     setLoadingLocation,
+    isGeocoding,
     address,
     setAddress,
     searchModalVisible,
