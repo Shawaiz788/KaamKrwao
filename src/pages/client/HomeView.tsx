@@ -89,6 +89,48 @@ export default function HomeView({ userName }: HomeViewProps) {
   // Production-Ready NetInfo State
   const [isConnected, setIsConnected] = useState(true);
 
+  // Smart Retry State
+  const [isRetryingData, setIsRetryingData] = useState(false);
+
+  const hasMissingEssentialData =
+    !loadingCategories &&
+    !loadingPaymentPrefs &&
+    (categories.length === 0 || paymentPreferences.length === 0);
+
+  const handleSmartRetry = async () => {
+    setIsRetryingData(true);
+    try {
+      const tasks: Promise<any>[] = [];
+
+      if (categories.length === 0) {
+        tasks.push(ensureCategories());
+      }
+
+      if (paymentPreferences.length === 0) {
+        tasks.push(
+          getPaymentPreferencesFromBackend().then((data) => {
+            const list = data || [];
+            setPaymentPreferences(list);
+            if (list.length > 0 && selectedPaymentPrefId === null) {
+              setSelectedPaymentPrefId(list[0].id);
+            }
+          })
+        );
+      }
+
+      await Promise.allSettled(tasks);
+
+      const { categories: updatedCats } = useCategoryStore.getState();
+      if (updatedCats.length > 0 && !activeCategory) {
+        setActiveCategory(updatedCats[0].name);
+      }
+    } catch (err) {
+      console.warn('[HomeView] Smart retry error:', err);
+    } finally {
+      setIsRetryingData(false);
+    }
+  };
+
   // Form Inputs State
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [budget, setBudget] = useState('');
@@ -464,6 +506,9 @@ export default function HomeView({ userName }: HomeViewProps) {
         handleRemoveAttachment={handleRemoveAttachment}
         handleAddAttachment={handleAddAttachment}
         handleRequestTask={handleRequestTask}
+        hasMissingEssentialData={hasMissingEssentialData}
+        onSmartRetry={handleSmartRetry}
+        isRetryingData={isRetryingData}
       />
 
       {/* Slide-out Drawer */}

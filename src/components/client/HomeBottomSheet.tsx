@@ -70,6 +70,9 @@ interface HomeBottomSheetProps {
   handleRemoveAttachment: (id: string) => void;
   handleAddAttachment: () => void;
   handleRequestTask: () => void;
+  hasMissingEssentialData?: boolean;
+  onSmartRetry?: () => void;
+  isRetryingData?: boolean;
 }
 
 export default function HomeBottomSheet({
@@ -105,6 +108,9 @@ export default function HomeBottomSheet({
   handleRemoveAttachment,
   handleAddAttachment,
   handleRequestTask,
+  hasMissingEssentialData,
+  onSmartRetry,
+  isRetryingData,
 }: HomeBottomSheetProps) {
   const insets = useSafeAreaInsets();
 
@@ -133,6 +139,38 @@ export default function HomeBottomSheet({
         keyboardShouldPersistTaps="handled"
         scrollEnabled={sheetState !== 'collapsed'}
       >
+        {hasMissingEssentialData && onSmartRetry ? (
+          <View style={styles.smartRetryCard}>
+            <View style={styles.smartRetryHeaderRow}>
+              <Ionicons name="warning-outline" size={20} color="#DC2626" style={{ marginRight: 8 }} />
+              <Text style={styles.smartRetryTitle}>
+                {categories.length === 0 && paymentPreferences.length === 0
+                  ? 'Categories & Payment options failed to load'
+                  : categories.length === 0
+                  ? 'Service categories failed to load'
+                  : 'Payment options failed to load'}
+              </Text>
+            </View>
+            <Text style={styles.smartRetrySubText}>
+              Essential app data could not be fetched from the backend. Tap below to retry.
+            </Text>
+            <Pressable
+              style={[styles.smartRetryBtn, isRetryingData && styles.smartRetryBtnDisabled]}
+              onPress={onSmartRetry}
+              disabled={isRetryingData}
+            >
+              {isRetryingData ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="refresh-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.smartRetryBtnText}>Retry Loading Data</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        ) : null}
+
         <HomeCategoryList
           sheetState={sheetState}
           showAllCategories={showAllCategories}

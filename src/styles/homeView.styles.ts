@@ -639,4 +639,47 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
   },
+  smartRetryCard: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    borderRadius: 14,
+    padding: 14,
+    marginHorizontal: 16,
+    marginVertical: 10,
+    gap: 8,
+  },
+  smartRetryHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  smartRetryTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#991B1B',
+    flex: 1,
+  },
+  smartRetrySubText: {
+    fontSize: 12,
+    color: '#7F1D1D',
+    lineHeight: 16,
+  },
+  smartRetryBtn: {
+    backgroundColor: '#DC2626',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  smartRetryBtnDisabled: {
+    backgroundColor: '#F87171',
+  },
+  smartRetryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
 });
