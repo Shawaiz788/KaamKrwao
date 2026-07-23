@@ -19,7 +19,7 @@ import AdminDrawerPanel from '@/components/admin/AdminDrawerPanel';
 import SearchBar from '@/components/admin/common/SearchBar';
 import EmptyState from '@/components/admin/common/EmptyState';
 import ConfirmDialog from '@/components/admin/common/ConfirmDialog';
-import { getAllEarnings, deleteWorkerEarnings } from '@/services/adminEarnings.service';
+import { getAllEarnings, deleteWorkerEarnings } from '@/services/adminEarnings';
 import { AdminEarningItem } from '@/types/admin';
 
 export default function AdminEarningsView() {

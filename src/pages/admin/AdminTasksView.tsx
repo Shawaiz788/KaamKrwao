@@ -21,7 +21,7 @@ import SearchBar from '@/components/admin/common/SearchBar';
 import EmptyState from '@/components/admin/common/EmptyState';
 import ConfirmDialog from '@/components/admin/common/ConfirmDialog';
 import TaskDetailModal from '@/components/admin/TaskDetailModal';
-import { getAllTasks, deleteTask } from '@/services/adminTasks.service';
+import { getAllTasks, deleteTask } from '@/services/adminTasks';
 import { BackendTask } from '@/types';
 
 const STATUS_FILTERS = [

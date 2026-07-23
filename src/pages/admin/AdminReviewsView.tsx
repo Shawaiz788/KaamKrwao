@@ -18,7 +18,7 @@ import AdminDrawerPanel from '@/components/admin/AdminDrawerPanel';
 import SearchBar from '@/components/admin/common/SearchBar';
 import EmptyState from '@/components/admin/common/EmptyState';
 import ConfirmDialog from '@/components/admin/common/ConfirmDialog';
-import { getAllReviews, deleteReview } from '@/services/adminReviews.service';
+import { getAllReviews, deleteReview } from '@/services/adminReviews';
 import { AdminReviewItem } from '@/types/admin';
 
 export default function AdminReviewsView() {

@@ -13,10 +13,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getUserProfile, verifyUserStatus, getUserRating } from '@/services/adminUsers.service';
-import { getWorkerEarnings } from '@/services/adminEarnings.service';
-import { getWorkerTasks } from '@/services/adminTasks.service';
-import { getCustomerReviews } from '@/services/adminReviews.service';
+import { getUserProfile, verifyUserStatus, getUserRating } from '@/services/adminUsers';
+import { getWorkerEarnings } from '@/services/adminEarnings';
+import { getWorkerTasks } from '@/services/adminTasks';
+import { getCustomerReviews } from '@/services/adminReviews';
 import StatusBadge from '@/components/admin/common/StatusBadge';
 
 export default function AdminProDetailView() {

@@ -21,7 +21,7 @@ import AdminDrawerPanel from '@/components/admin/AdminDrawerPanel';
 import SearchBar from '@/components/admin/common/SearchBar';
 import EmptyState from '@/components/admin/common/EmptyState';
 import ConfirmDialog from '@/components/admin/common/ConfirmDialog';
-import { masterDataService } from '@/services/masterData.service';
+import { masterDataService } from '@/services/masterData';
 
 type MasterDomain =
   | 'countries'

@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getTaskBids } from '@/services/bidding.service';
+import { getTaskBids } from '@/services/bidding';
 import { AdminBidItem } from '@/types/admin';
 import EmptyState from '@/components/admin/common/EmptyState';
 

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { getAllTasks, getOpenTasks } from '@/services/adminTasks.service';
-import { getAllReviews } from '@/services/adminReviews.service';
-import { masterDataService } from '@/services/masterData.service';
+import { getAllTasks, getOpenTasks } from '@/services/adminTasks';
+import { getAllReviews } from '@/services/adminReviews';
+import { masterDataService } from '@/services/masterData';
 import { DashboardStats } from '@/types/admin';
 
 export function useAdminDashboard() {
