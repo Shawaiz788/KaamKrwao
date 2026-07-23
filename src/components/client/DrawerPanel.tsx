@@ -44,7 +44,7 @@ export default function DrawerPanel({
   const [reviewCount, setReviewCount] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!user?.id || !open) return;
+    if (!user?.id) return;
     let isMounted = true;
     if (reviewCount === null) {
       setLoadingReviews(true);
@@ -71,7 +71,7 @@ export default function DrawerPanel({
     return () => {
       isMounted = false;
     };
-  }, [user?.id, open]);
+  }, [user?.id]);
 
   if (!open) return null;
 

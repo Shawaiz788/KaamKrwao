@@ -62,14 +62,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 //console.log('[SecureStore] Saved user JWT refresh token');
             }
             await SecureStore.setItemAsync('user_session', JSON.stringify(appUser, null, 4));
-            
+
             // Switch MMKV store user context
             useTaskStore.getState().switchUser(appUser.id ?? null);
 
             // Fetch tasks from backend strictly on explicit user login for Customer users
             if (appUser.id && appUser.usertype_id === USER_TYPE_CLIENT) {
                 try {
-                    console.log(`[auth login] Syncing customer task history from backend for User ID: ${appUser.id}...`);
+                    // console.log(`[auth login] Syncing customer task history from backend for User ID: ${appUser.id}...`);
                     const backendTasks = await getUserTasksFromBackend(appUser.id);
                     const mappedTasks: Task[] = (backendTasks || []).map((bt) => ({
                         id: bt.id ? bt.id.toString() : Date.now().toString(),

@@ -17,6 +17,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { getPaymentPreferencesFromBackend, PaymentPreference } from '@/services/task';
 import useCategoryStore from '@/store/categoryStore';
 import { getLocationById } from '@/services/location';
+import { getCustomerReviews } from '@/services/user';
 import { useAuth } from '@/context/auth';
 import { usePostJob } from '@/context/post-job';
 import ActiveTaskScreen from '@/pages/client/ActiveTaskScreen';
@@ -253,6 +254,18 @@ export default function HomeView({ userName }: HomeViewProps) {
         } finally {
           setLoadingLocation(false);
         }
+      }
+
+      // Background non-blocking pre-fetch of user reviews and ratings after primary bootstrapping
+      if (user?.id) {
+        const fetchBackgroundReviews = async (userId: number) => {
+          try {
+            await getCustomerReviews(userId);
+          } catch (err) {
+            console.warn('[HomeView] Non-fatal background reviews prefetch error:', err);
+          }
+        };
+        fetchBackgroundReviews(user.id);
       }
     };
 
