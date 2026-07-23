@@ -40,7 +40,7 @@ export default function SignInScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { login } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState<string | null>(null);
 
   const {
     control,
@@ -56,11 +56,12 @@ export default function SignInScreen() {
   });
 
   const onSignIn = async (data: SignInFields) => {
-    setIsLoading(true);
     try {
+      setLoadingStep('Authenticating credentials...');
       const formattedPhone = `+92${data.phone}`;
       const userInfo = await loginUser(formattedPhone, data.password);
 
+      setLoadingStep('Fetching user profile...');
       const token = (userInfo as any).access || (userInfo as any).access_token || (userInfo as any).token;
       const refreshToken = (userInfo as any).refresh || (userInfo as any).refresh_token;
       const userDetails = (userInfo as any).user || userInfo;
@@ -90,8 +91,10 @@ export default function SignInScreen() {
         refreshToken: refreshToken,
       };
 
+      setLoadingStep('Syncing session...');
       await login(appUser, data.password);
 
+      setLoadingStep('Redirecting...');
       if (appUser.usertype_id === USER_TYPE_ADMIN) {
         router.replace('/(protected)/(admin)/dashboard');
       } else if (appUser.usertype_id === USER_TYPE_PRO) {
@@ -103,9 +106,11 @@ export default function SignInScreen() {
       console.log('Sign in error: ', err);
       setError('root', { message: err.message || 'An error occurred signing in' });
     } finally {
-      setIsLoading(false);
+      setLoadingStep(null);
     }
   };
+
+  const isLoading = Boolean(loadingStep);
 
   return (
     <View style={styles.container}>
@@ -136,7 +141,10 @@ export default function SignInScreen() {
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <View style={styles.loadingContentRow}>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <Text style={styles.loadingStepText}>{loadingStep}</Text>
+                  </View>
                 ) : (
                   <Text style={styles.primaryButtonText}>Sign In</Text>
                 )}
@@ -213,6 +221,17 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontWeight: '700',
+  },
+  loadingContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  loadingStepText: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '700',
   },
   redirectContainer: {

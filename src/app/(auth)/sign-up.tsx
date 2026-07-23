@@ -45,7 +45,7 @@ type SignUpFields = z.infer<typeof signUpSchema>;
 export default function SignUpScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState<string | null>(null);
 
   const {
     control,
@@ -65,17 +65,18 @@ export default function SignUpScreen() {
   const watchPassword = watch('password');
 
   const onSignUp = async (data: SignUpFields) => {
-    setIsLoading(true);
     try {
+      setLoadingStep('Checking phone availability...');
       const formattedPhone = `+92${data.phone}`;
 
       const phoneExists = await checkPhoneExists(formattedPhone);
       if (phoneExists) {
         setError('phone', { message: 'Phone number already registered. Please sign in.' });
-        setIsLoading(false);
+        setLoadingStep(null);
         return;
       }
 
+      setLoadingStep('Sending SMS OTP...');
       const auth = getAuth();
 
       if (auth.currentUser) {
@@ -84,6 +85,8 @@ export default function SignUpScreen() {
 
       const confirmation = await signInWithPhoneNumber(auth, formattedPhone);
       await SecureStore.setItemAsync('pending_signup_password', data.password);
+
+      setLoadingStep('Proceeding...');
       router.push({
         pathname: '/verify',
         params: {
@@ -111,9 +114,11 @@ export default function SignUpScreen() {
         setError('root', { message: rawMsg || 'An error occurred sending OTP' });
       }
     } finally {
-      setIsLoading(false);
+      setLoadingStep(null);
     }
   };
+
+  const isLoading = Boolean(loadingStep);
 
   return (
     <View style={styles.container}>
@@ -148,7 +153,10 @@ export default function SignUpScreen() {
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <View style={styles.loadingContentRow}>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <Text style={styles.loadingStepText}>{loadingStep}</Text>
+                  </View>
                 ) : (
                   <Text style={styles.primaryButtonText}>Send Verification Code</Text>
                 )}
@@ -225,6 +233,17 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontWeight: '700',
+  },
+  loadingContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  loadingStepText: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '700',
   },
   redirectContainer: {
