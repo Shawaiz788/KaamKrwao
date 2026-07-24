@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { LiveJob } from '@/hooks/useProWebSocket';
 import UserReviewsModal from '@/components/UserReviewsModal';
-import { getPaymentPreferenceName } from '@/utils/paymentCache';
+import { getPaymentPreferenceName, getPaymentPrefStyleById } from '@/utils/paymentCache';
 
 interface ProActiveTaskModalProps {
     job: LiveJob | null;
@@ -211,12 +211,20 @@ export default function ProActiveTaskModal({
                             <Text style={styles.budgetValue}>Rs. {job.budget.toLocaleString()}</Text>
                         </View>
 
-                        <View style={styles.budgetBox}>
-                            <Text style={styles.budgetLabel}>Payment Method</Text>
-                            <Text style={[styles.budgetValue, { color: Colors.white }]}>
-                                {getPaymentPreferenceName(job.payment_preference_id)}
-                            </Text>
-                        </View>
+                        {(() => {
+                            const payStyle = getPaymentPrefStyleById(job.payment_preference_id);
+                            return (
+                                <View style={styles.budgetBox}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        <Ionicons name={payStyle.icon as any} size={14} color={payStyle.logoColor} />
+                                        <Text style={styles.budgetLabel}>Payment Method</Text>
+                                    </View>
+                                    <Text style={[styles.budgetValue, { color: payStyle.logoColor }]}>
+                                        {payStyle.name}
+                                    </Text>
+                                </View>
+                            );
+                        })()}
 
                         {Boolean(job.description) && (
                             <View style={styles.descBox}>

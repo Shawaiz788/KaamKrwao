@@ -14,28 +14,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import HomeCategoryList from './HomeCategoryList';
 import { styles } from '@/styles/homeView.styles';
+import { getPaymentPrefStyle } from '@/utils/paymentCache';
+
+export { getPaymentPrefStyle };
 
 const { height } = Dimensions.get('window');
 const SHEET_HEIGHT = height * 0.8;
-
-export const getPaymentPrefStyle = (name: string) => {
-  const normalized = name.trim().toLowerCase();
-  const stylesMap: Record<string, { icon: string; logoColor: string }> = {
-    'cash': { icon: 'cash-outline', logoColor: '#059669' },
-    'jazzcash': { icon: 'wallet-outline', logoColor: '#EAB308' },
-    'easypaisa': { icon: 'card-outline', logoColor: '#2563EB' },
-  };
-
-  if (stylesMap[normalized]) return stylesMap[normalized];
-
-  for (const key of Object.keys(stylesMap)) {
-    if (normalized.includes(key) || key.includes(normalized)) {
-      return stylesMap[key];
-    }
-  }
-
-  return { icon: 'card-outline', logoColor: '#6B7280' };
-};
 
 interface HomeBottomSheetProps {
   bottomSheetStyle: any;

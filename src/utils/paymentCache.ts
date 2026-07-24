@@ -37,3 +37,30 @@ export const getPaymentPreferenceName = (id: number | undefined | null): string 
   const pref = list.find((p) => Number(p.id) === Number(id));
   return pref ? pref.name : 'Cash';
 };
+
+export const getPaymentPrefStyle = (name: string) => {
+  const normalized = (name || '').trim().toLowerCase();
+  const stylesMap: Record<string, { icon: string; logoColor: string }> = {
+    'cash': { icon: 'cash-outline', logoColor: '#059669' },
+    'jazzcash': { icon: 'wallet-outline', logoColor: '#EAB308' },
+    'easypaisa': { icon: 'card-outline', logoColor: '#2563EB' },
+  };
+
+  if (stylesMap[normalized]) return stylesMap[normalized];
+
+  for (const key of Object.keys(stylesMap)) {
+    if (normalized.includes(key) || key.includes(normalized)) {
+      return stylesMap[key];
+    }
+  }
+
+  return { icon: 'card-outline', logoColor: '#6B7280' };
+};
+
+export const getPaymentPrefStyleById = (id: number | undefined | null) => {
+  const name = getPaymentPreferenceName(id);
+  return {
+    name,
+    ...getPaymentPrefStyle(name),
+  };
+};

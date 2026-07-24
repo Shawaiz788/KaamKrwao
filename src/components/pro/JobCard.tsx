@@ -16,7 +16,7 @@ import { LiveJob } from '@/hooks/useProWebSocket';
 import { getCategoryStyle } from '@/store/categoryStore';
 import { ActiveBidState } from '@/hooks/useActiveBids';
 import UserReviewsModal from '@/components/UserReviewsModal';
-import { getPaymentPreferenceName } from '@/utils/paymentCache';
+import { getPaymentPreferenceName, getPaymentPrefStyleById } from '@/utils/paymentCache';
 
 const { width } = Dimensions.get('window');
 
@@ -164,10 +164,15 @@ export default function JobCard({ job, onPress, onQuickBid, activeBid }: JobCard
                                 {job.distance_km.toFixed(1)} km
                             </Text>
                         )}
-                        <Text style={styles.distanceText}>
-                            <Ionicons name="wallet-outline" size={11} color={Colors.neutral[400]} />{' '}
-                            {getPaymentPreferenceName(job.payment_preference_id)}
-                        </Text>
+                        {(() => {
+                            const payStyle = getPaymentPrefStyleById(job.payment_preference_id);
+                            return (
+                                <Text style={[styles.distanceText, { color: payStyle.logoColor, fontWeight: '600' }]}>
+                                    <Ionicons name={payStyle.icon as any} size={11} color={payStyle.logoColor} />{' '}
+                                    {payStyle.name}
+                                </Text>
+                            );
+                        })()}
                     </View>
                 </View>
             </View>
