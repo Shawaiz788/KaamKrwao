@@ -15,6 +15,8 @@ import { Colors } from '@/constants/colors';
 import { LiveJob } from '@/hooks/useProWebSocket';
 import { getCategoryStyle } from '@/store/categoryStore';
 import { ActiveBidState } from '@/hooks/useActiveBids';
+import UserReviewsModal from '@/components/UserReviewsModal';
+import { getPaymentPreferenceName } from '@/utils/paymentCache';
 
 const { width } = Dimensions.get('window');
 
@@ -83,6 +85,7 @@ function showToast(message: string) {
 
 export default function JobCard({ job, onPress, onQuickBid, activeBid }: JobCardProps) {
     const progressAnim = useRef(new Animated.Value(1)).current;
+    const [customerReviewsVisible, setCustomerReviewsVisible] = useState(false);
     const [countdown, setCountdown] = useState(10);
 
     const base = job.budget;
@@ -161,6 +164,10 @@ export default function JobCard({ job, onPress, onQuickBid, activeBid }: JobCard
                                 {job.distance_km.toFixed(1)} km
                             </Text>
                         )}
+                        <Text style={styles.distanceText}>
+                            <Ionicons name="wallet-outline" size={11} color={Colors.neutral[400]} />{' '}
+                            {getPaymentPreferenceName(job.payment_preference_id)}
+                        </Text>
                     </View>
                 </View>
             </View>
@@ -187,21 +194,31 @@ export default function JobCard({ job, onPress, onQuickBid, activeBid }: JobCard
                     <Text style={styles.budgetValue}>Rs. {base.toLocaleString()}</Text>
                 </View>
                 <View style={styles.customerBox}>
-                    <Text style={styles.customerLabel}>Customer</Text>
+                    <Text style={styles.customerLabel}>Customer (Tap for reviews)</Text>
                     {job.is_customer_loading || job.customer_name === 'Loading customer...' ? (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                             <SkeletonBox width={65} height={13} borderRadius={4} />
                             <SkeletonBox width={28} height={13} borderRadius={4} />
                         </View>
                     ) : (
-                        <View style={styles.customerRow}>
+                        <Pressable 
+                            style={styles.customerRow}
+                            onPress={() => {
+                                if (job.customer_id) {
+                                    setCustomerReviewsVisible(true);
+                                }
+                            }}
+                        >
                             <Text style={styles.customerName}>{job.customer_name}</Text>
                             {job.customer_rating !== undefined && job.customer_rating !== null && (
-                                <Text style={styles.customerRating}>
-                                    ★ {Number(job.customer_rating).toFixed(1)}
-                                </Text>
+                                <View style={styles.cardRatingRow}>
+                                    <Ionicons name="star" size={11} color="#D97706" style={{ marginRight: 2 }} />
+                                    <Text style={[styles.customerRating, { color: '#D97706' }]}>
+                                        {Number(job.customer_rating).toFixed(1)}
+                                    </Text>
+                                </View>
                             )}
-                        </View>
+                        </Pressable>
                     )}
                 </View>
             </View>
@@ -261,6 +278,15 @@ export default function JobCard({ job, onPress, onQuickBid, activeBid }: JobCard
                     <Text style={[styles.bidBtnSub, isWaiting && styles.bidBtnTextDisabled]}>+10%</Text>
                 </Pressable>
             </View>
+
+            {/* Customer Reviews Modal */}
+            <UserReviewsModal
+                isVisible={customerReviewsVisible}
+                onClose={() => setCustomerReviewsVisible(false)}
+                userId={job.customer_id}
+                userName={job.customer_name || 'Customer'}
+                role="customer"
+            />
         </Pressable>
     );
 }
@@ -374,6 +400,15 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#EAB308',
         fontWeight: '600',
+    },
+    cardRatingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFFBEB',
+        paddingHorizontal: 6,
+        paddingVertical: 1,
+        borderRadius: 4,
+        gap: 2,
     },
     waitingBar: {
         height: 38,
