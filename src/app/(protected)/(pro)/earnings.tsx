@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { getProEarnings } from '@/services/proEarnings';
+import useProEarningsStore from '@/store/proEarningsStore';
 import { ProEarnings } from '@/types';
 import { useAuth } from '@/context/auth';
 
@@ -21,12 +22,12 @@ export default function ProEarningsRoute() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const [earnings, setEarnings] = useState<ProEarnings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { earnings, fetchEarnings: fetchEarningsFromStore } = useProEarningsStore();
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchEarnings = async (showRefresher = false) => {
+  const fetchEarningsData = async (showRefresher = false) => {
     if (!user?.id) return;
     if (showRefresher) {
       setRefreshing(true);
@@ -35,8 +36,7 @@ export default function ProEarningsRoute() {
     }
     setError(null);
     try {
-      const data = await getProEarnings(user.id);
-      setEarnings(data);
+      await fetchEarningsFromStore(user.id, showRefresher);
     } catch (err: any) {
       console.error('[ProEarnings] Error fetching earnings details:', err);
       setError(err.message || 'Failed to fetch earnings details. Please try again.');
@@ -48,12 +48,12 @@ export default function ProEarningsRoute() {
 
   useEffect(() => {
     if (user?.id) {
-      fetchEarnings();
+      fetchEarningsData();
     }
   }, [user?.id]);
 
   const onRefresh = () => {
-    fetchEarnings(true);
+    fetchEarningsData(true);
   };
 
   const formatDate = (dateStr?: string) => {
@@ -87,7 +87,7 @@ export default function ProEarningsRoute() {
         <Ionicons name="alert-circle-outline" size={60} color={Colors.error} style={styles.errorIcon} />
         <Text style={styles.errorTitle}>Retrieval Failed</Text>
         <Text style={styles.errorText}>{error}</Text>
-        <Pressable style={styles.retryBtn} onPress={() => fetchEarnings()}>
+        <Pressable style={styles.retryBtn} onPress={() => fetchEarningsData()}>
           <Ionicons name="refresh" size={18} color={Colors.white} style={{ marginRight: 6 }} />
           <Text style={styles.retryBtnText}>Retry Fetch</Text>
         </Pressable>
@@ -131,7 +131,7 @@ export default function ProEarningsRoute() {
             </View>
             <View>
               <Text style={styles.jobsCompletedLabel}>Jobs Completed</Text>
-              <Text style={styles.jobsCompletedValue}>{earnings?.jobs_done || 0}</Text>
+              <Text style={styles.jobsCompletedValue}>{earnings?.total_jobs_done ?? earnings?.jobs_done ?? 0}</Text>
             </View>
           </View>
         </View>

@@ -17,6 +17,7 @@ import { Colors } from '@/constants/colors';
 import ProDrawerPanel from '@/components/pro/ProDrawerPanel';
 import { getProEarnings } from '@/services/proEarnings';
 import { getWorkerTasksFromBackend } from '@/services/task';
+import useProEarningsStore from '@/store/proEarningsStore';
 import { ProEarnings } from '@/types';
 import styles from '@/styles/proDashboardView.styles';
 
@@ -34,6 +35,25 @@ const CHART_DATA = [
     { day: 'Sun', value: 6400 },
 ];
 const MAX_CHART_VALUE = Math.max(...CHART_DATA.map((d) => d.value));
+
+function formatLastSynced(timestamp: number | null): string {
+    if (!timestamp) return 'Just now';
+    const ageSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+    if (ageSeconds < 60) return 'Just now';
+    const ageMinutes = Math.floor(ageSeconds / 60);
+    if (ageMinutes < 60) return `${ageMinutes}m ago`;
+    const ageHours = Math.floor(ageMinutes / 60);
+    return `${ageHours}h ago`;
+}
+
+function getRemainingCacheTime(timestamp: number | null): string {
+    if (!timestamp) return '10m';
+    const CACHE_TTL_MS = 10 * 60 * 1000;
+    const elapsed = Date.now() - timestamp;
+    const remainingMs = Math.max(0, CACHE_TTL_MS - elapsed);
+    const remainingMins = Math.ceil(remainingMs / (60 * 1000));
+    return remainingMins <= 0 ? 'now' : `${remainingMins}m`;
+}
 
 const RECENT_JOBS = [
     { id: '1', title: 'AC repair service', address: 'Phase 2, Industrial Area', amount: 'Rs 8,500', icon: 'snow', color: '#3B82F6' },
@@ -97,7 +117,7 @@ export default function ProDashboardView() {
 
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [isOnline, setIsOnline] = useState(false);
-    const [earnings, setEarnings] = useState<ProEarnings | null>(null);
+    const { earnings, fetchEarnings, lastFetchedAt } = useProEarningsStore();
     const [loadingEarnings, setLoadingEarnings] = useState(true);
     const [recentJobs, setRecentJobs] = useState<any[]>([]);
     const [loadingJobs, setLoadingJobs] = useState(true);
@@ -106,14 +126,10 @@ export default function ProDashboardView() {
         const fetchDashboardData = async () => {
             if (!user?.id) return;
             try {
-                const [earningsRes, tasksRes] = await Promise.allSettled([
-                    getProEarnings(user.id),
+                const [, tasksRes] = await Promise.allSettled([
+                    fetchEarnings(user.id),
                     getWorkerTasksFromBackend(user.id),
                 ]);
-
-                if (earningsRes.status === 'fulfilled' && earningsRes.value) {
-                    setEarnings(earningsRes.value);
-                }
 
                 if (tasksRes.status === 'fulfilled' && Array.isArray(tasksRes.value)) {
                     const mapped = tasksRes.value.slice(0, 5).map((t) => ({
@@ -175,6 +191,36 @@ export default function ProDashboardView() {
                 contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}
                 showsVerticalScrollIndicator={false}
             >
+                {/* Sync & Cache Indicator Bar */}
+                <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: Colors.white,
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    borderRadius: 12,
+                    marginBottom: 4,
+                    borderWidth: 1,
+                    borderColor: '#E5E7EB',
+                }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                        <Ionicons name="time-outline" size={15} color={Colors.neutral[500]} />
+                        <Text style={{ fontSize: 12, color: Colors.neutral[600], fontWeight: '500' }}>
+                            Last synced: <Text style={{ fontWeight: '700', color: Colors.neutral[800] }}>{formatLastSynced(lastFetchedAt)}</Text> • Next update in <Text style={{ fontWeight: '700', color: Colors.pro.accent }}>{getRemainingCacheTime(lastFetchedAt)}</Text>
+                        </Text>
+                    </View>
+                    <Pressable
+                        onPress={() => {
+                            if (user?.id) fetchEarnings(user.id, true);
+                        }}
+                        hitSlop={8}
+                        style={{ paddingLeft: 8 }}
+                    >
+                        <Ionicons name="refresh" size={16} color={Colors.pro.accent} />
+                    </Pressable>
+                </View>
+
                 {/* Stats Grid */}
                 <View style={styles.statsGrid}>
                     <StatCard
@@ -187,13 +233,13 @@ export default function ProDashboardView() {
                     <StatCard
                         label="Total Earned"
                         value={loadingEarnings ? "..." : `Rs. ${earnings?.total_earning?.toLocaleString() || '0'}`}
-                        sub={`${earnings?.jobs_done || 0} jobs`}
+                        sub={`${earnings?.total_jobs_done ?? earnings?.jobs_done ?? 0} jobs`}
                         iconName="wallet-outline"
                         iconColor="#F97316"
                     />
                     <StatCard
                         label="Jobs Done"
-                        value={loadingEarnings ? "..." : `${earnings?.jobs_done || 0}`}
+                        value={loadingEarnings ? "..." : `${earnings?.total_jobs_done ?? earnings?.jobs_done ?? 0}`}
                         sub="Completed jobs"
                         iconName="cube-outline"
                         iconColor="#3B82F6"

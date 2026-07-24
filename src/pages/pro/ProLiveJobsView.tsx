@@ -21,6 +21,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/auth';
 import { Colors } from '@/constants/colors';
 import { getWorkerTasksFromBackend } from '@/services/task';
+import useProEarningsStore from '@/store/proEarningsStore';
 import { useProWebSocket, LiveJob } from '@/hooks/useProWebSocket';
 import { sendQuickBidViaWebSocket, useBiddingWebSocket } from '@/hooks/useBiddingWebSocket';
 import JobCard from '@/components/pro/JobCard';
@@ -202,6 +203,7 @@ export default function ProLiveJobsView() {
 
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [isOnline, setIsOnline] = useState(false);
+    const { earnings, fetchEarnings } = useProEarningsStore();
     const [selectedJob, setSelectedJob] = useState<LiveJob | null>(null);
     const [sheetVisible, setSheetVisible] = useState(false);
     const { activeProTask: assignedJob, setActiveProTask: setAssignedJob } = useProTaskStore();
@@ -246,7 +248,11 @@ export default function ProLiveJobsView() {
         }).catch((err) => {
             console.warn('[ProLiveJobsView] Sync worker active task error:', err);
         });
-    }, [user?.id, assignedJob, setAssignedJob]);
+
+        if (user?.id) {
+            fetchEarnings(user.id);
+        }
+    }, [user?.id, assignedJob, setAssignedJob, fetchEarnings]);
 
     // Filter available live jobs to exclude assigned job
     const displayJobs: LiveJob[] = (wsJobs.length > 0)
@@ -389,8 +395,8 @@ export default function ProLiveJobsView() {
         ? user.displayName.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
         : 'A';
 
-    const todayEarnings = 'Rs. 8,700';
-    const jobsToday = 3;
+    const todayEarnings = `Rs. ${earnings?.daily_earning ? earnings.daily_earning.toLocaleString() : '0'}`;
+    const jobsToday = earnings?.daily_jobs_done ?? 0;
 
     return (
         <View style={styles.root}>
