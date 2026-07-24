@@ -225,6 +225,13 @@ export default function ProLiveJobsView() {
 
     const { placeBid, removeBid, getActiveBid, activeJobIds } = useActiveBids(10);
 
+    // Fetch pro earnings on mount/user load
+    useEffect(() => {
+        if (user?.id) {
+            fetchEarnings(user.id);
+        }
+    }, [user?.id, fetchEarnings]);
+
     // Sync active worker task from backend if not already set locally
     useEffect(() => {
         if (!user?.id || assignedJob) return;
@@ -248,11 +255,7 @@ export default function ProLiveJobsView() {
         }).catch((err) => {
             console.warn('[ProLiveJobsView] Sync worker active task error:', err);
         });
-
-        if (user?.id) {
-            fetchEarnings(user.id);
-        }
-    }, [user?.id, assignedJob, setAssignedJob, fetchEarnings]);
+    }, [user?.id, assignedJob, setAssignedJob]);
 
     // Filter available live jobs to exclude assigned job
     const displayJobs: LiveJob[] = (wsJobs.length > 0)
@@ -343,6 +346,11 @@ export default function ProLiveJobsView() {
             setAssignedJob(null);
             setActiveModalVisible(false);
 
+            // Force refresh earnings metrics from backend immediately
+            if (user?.id) {
+                fetchEarnings(user.id, true).catch(() => {});
+            }
+
             // Open review modal for pro to rate customer
             setCompletedJobForReview(job);
             setReviewModalVisible(true);
@@ -395,8 +403,9 @@ export default function ProLiveJobsView() {
         ? user.displayName.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
         : 'A';
 
-    const todayEarnings = `Rs. ${earnings?.daily_earning ? earnings.daily_earning.toLocaleString() : '0'}`;
-    const jobsToday = earnings?.daily_jobs_done ?? 0;
+    const totalEarningsVal = earnings?.total_earning ?? earnings?.daily_earning ?? 0;
+    const totalJobsVal = earnings?.total_jobs_done ?? earnings?.jobs_done ?? earnings?.daily_jobs_done ?? 0;
+    const totalEarningsText = `Rs. ${totalEarningsVal.toLocaleString()}`;
 
     return (
         <View style={styles.root}>
@@ -452,13 +461,13 @@ export default function ProLiveJobsView() {
             {/* Sub-header: earnings + jobs count */}
             <View style={styles.subHeader}>
                 <View>
-                    <Text style={styles.subLabel}>Today's earnings</Text>
-                    <Text style={styles.subValue}>{todayEarnings}</Text>
+                    <Text style={styles.subLabel}>Total Earnings</Text>
+                    <Text style={styles.subValue}>{totalEarningsText}</Text>
                 </View>
                 <View style={styles.subDivider} />
                 <View style={styles.subRight}>
-                    <Text style={styles.subLabel}>Jobs today</Text>
-                    <Text style={styles.subValueRight}>{jobsToday}</Text>
+                    <Text style={styles.subLabel}>Jobs Done</Text>
+                    <Text style={styles.subValueRight}>{totalJobsVal}</Text>
                 </View>
             </View>
 
