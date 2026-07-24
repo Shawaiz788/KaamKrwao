@@ -5,6 +5,7 @@ import { createUser, verifyUserOnBackend, loginUser } from '@/services/user';
 import { useMutation } from '@tanstack/react-query';
 import { getOrCreateLocationChain } from '@/services/location';
 import { USER_TYPE_ADMIN, USER_TYPE_CLIENT, USER_TYPE_PRO } from '@/constants/userTypes';
+import { createProEarnings } from '@/services/proEarnings';
 
 type Role = 'client' | 'provider' | 'admin';
 
@@ -176,6 +177,16 @@ export function useProfileSubmit({
             console.log('[profile-setup] Backend verification complete!');
           } catch (verifyErr) {
             console.error('[profile-setup] Auto-verification on backend failed:', verifyErr);
+          }
+        }
+
+        if (createdUser && createdUser.id && (createdUser.usertype_id === USER_TYPE_PRO || createdUser.usertype_id === 2)) {
+          try {
+            console.log(`[profile-setup] Initializing WorkerEarnings for Pro User ID: ${createdUser.id}...`);
+            await createProEarnings(createdUser.id);
+            console.log('[profile-setup] WorkerEarnings initialized successfully!');
+          } catch (earningsErr) {
+            console.warn('[profile-setup] WorkerEarnings initialization warning:', earningsErr);
           }
         }
 
