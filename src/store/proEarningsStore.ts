@@ -59,7 +59,7 @@ const useProEarningsStore = create<ProEarningsStoreState>((set, get) => ({
 
     // Cache valid for 10 minutes unless force refresh requested
     if (!force && earnings && lastFetchedAt && (now - lastFetchedAt < CACHE_TTL_MS)) {
-      console.log(`[proEarningsStore] Using cached earnings for worker ${workerId} (Age: ${Math.round((now - lastFetchedAt) / 1000)}s)`);
+      // console.log(`[proEarningsStore] Using cached earnings for worker ${workerId} (Age: ${Math.round((now - lastFetchedAt) / 1000)}s)`);
       return earnings;
     }
 

@@ -264,7 +264,7 @@ export function PostJobProvider({ children }: { children: React.ReactNode }) {
       name: 'Service Provider',
       avatar: '',
       rating: 4.8,
-      reviewsCount: 45,
+      reviewsCount: 0,
       price: activeTask.budget,
       timeEstimate: '15 min',
       message: 'Bid accepted',

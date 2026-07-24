@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-end',
         justifyContent: 'space-between',
         height: 100,
-        paddingBottom: 16,
+        paddingTop: 16,
     },
     chartBar: {
         flex: 1,

@@ -245,28 +245,32 @@ export const updateProfilePic = async (
 const customerReviewsCache = new Map<number, { data: any[]; timestamp: number }>();
 const REVIEWS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
 
-// Fetch reviews received by customer from backend (cached in memory)
-export const getCustomerReviews = async (userId: number, forceRefresh = false): Promise<any[]> => {
+export const getUserReviews = async (userId: number, forceRefresh = false): Promise<any[]> => {
     const cached = customerReviewsCache.get(userId);
     if (!forceRefresh && cached && (Date.now() - cached.timestamp < REVIEWS_CACHE_TTL)) {
         return cached.data;
     }
 
-    //console.log(`[user API] Fetching customer reviews for user ID: ${userId}`);
-    const response = await fetchWithAuth(`${API_URL}/app/review/customer/${userId}/`);
+    console.log(`[user API] Fetching reviews list from /app/review/ for user ID: ${userId}`);
+    const response = await fetchWithAuth(`${API_URL}/app/review/`);
     const responseText = await response.text();
-    // console.log('[user API] Get customer reviews status:', response.status);
+    console.log('[user API] Get reviews status:', response.status);
 
     if (!response.ok) {
-        throw new Error(`Failed to fetch customer reviews. Status: ${response.status}. Response: ${responseText}`);
+        if (response.status === 404) return [];
+        throw new Error(`Failed to fetch reviews. Status: ${response.status}. Response: ${responseText}`);
     }
 
     try {
         const data = JSON.parse(responseText);
-        const reviews = Array.isArray(data) ? data : (data.results || data.reviews || []);
-        customerReviewsCache.set(userId, { data: reviews, timestamp: Date.now() });
-        return reviews;
+        const allReviews: any[] = Array.isArray(data) ? data : (data.results || data.reviews || []);
+        // Filter reviews for target user
+        const userReviews = allReviews.filter((r: any) => Number(r.user_id) === Number(userId));
+        customerReviewsCache.set(userId, { data: userReviews, timestamp: Date.now() });
+        return userReviews;
     } catch (e) {
-        throw new Error(`Failed to parse customer reviews response. Content: ${responseText}`);
+        throw new Error(`Failed to parse reviews response. Content: ${responseText}`);
     }
 };
+
+export const getCustomerReviews = getUserReviews;

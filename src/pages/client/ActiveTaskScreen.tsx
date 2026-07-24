@@ -29,6 +29,7 @@ import { getCustomerProfile } from '@/services/customer';
 import { createReview } from '@/services/review';
 import ReviewModal from '@/components/ReviewModal';
 import UserReviewsModal from '@/components/UserReviewsModal';
+import { getUserReviews } from '@/services/user';
 
 const { width } = Dimensions.get('window');
 
@@ -67,13 +68,31 @@ export default function ActiveTaskScreen({ onBack }: ActiveTaskScreenProps) {
     token: user?.token,
   });
 
+  const [proReviewCounts, setProReviewCounts] = useState<Record<number, number>>({});
+
+  useEffect(() => {
+    wsBids.forEach((b) => {
+      const uid = Number(b.user_id);
+      if (uid && !(uid in proReviewCounts)) {
+        getUserReviews(uid)
+          .then((reviewsList) => {
+            setProReviewCounts((prev) => ({
+              ...prev,
+              [uid]: Array.isArray(reviewsList) ? reviewsList.length : 0,
+            }));
+          })
+          .catch(() => {});
+      }
+    });
+  }, [wsBids]);
+
   const bids: Bid[] = wsBids.map((b) => ({
     id: String(b.id),
     user_id: Number(b.user_id),
     name: b.user_name || (b.is_profile_loading ? '' : `Professional #${b.user_id}`),
     avatar: b.user_avatar || '',
     rating: b.user_rating || 4.8,
-    reviewsCount: 45,
+    reviewsCount: proReviewCounts[Number(b.user_id)] ?? 0,
     price: b.price,
     timeEstimate: b.estimated_hours ? `${b.estimated_hours * 60} min` : '15 min',
     message: b.estimated_hours ? `Estimated duration: ${b.estimated_hours} hours` : 'Ready to perform task',

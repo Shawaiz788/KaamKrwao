@@ -18,11 +18,11 @@ export const getCachedPaymentPreferences = (): PaymentPreference[] => {
 
 export const syncPaymentPreferences = async (): Promise<PaymentPreference[]> => {
   try {
-    console.log('[paymentCache] Fetching payment preferences from backend...');
+    //console.log('[paymentCache] Fetching payment preferences from backend...');
     const data = await getPaymentPreferencesFromBackend();
     if (data && Array.isArray(data)) {
       storage.set('payment_preferences', JSON.stringify(data));
-      console.log(`[paymentCache] Synced ${data.length} payment preferences.`);
+      // console.log(`[paymentCache] Synced ${data.length} payment preferences.`);
       return data;
     }
   } catch (e) {
