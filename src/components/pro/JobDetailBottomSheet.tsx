@@ -26,6 +26,7 @@ import { useAuth } from '@/context/auth';
 import { getCategoryStyle } from '@/store/categoryStore';
 import { getTaskAttachments } from '@/services/task';
 import UserReviewsModal from '@/components/UserReviewsModal';
+import { getPaymentPreferenceName } from '@/utils/paymentCache';
 
 const { height: WINDOW_H } = Dimensions.get('window');
 const { height: SCREEN_H_SCREEN } = Dimensions.get('screen');
@@ -540,6 +541,17 @@ export default function JobDetailBottomSheet({
                                 {job?.location_area && (
                                     <Text style={styles.detailSecondary}>{job?.location_area}</Text>
                                 )}
+                            </View>
+                        </View>
+
+                        {/* Payment Method */}
+                        <View style={styles.detailRow}>
+                            <Ionicons name="wallet-outline" size={16} color={Colors.neutral[400]} />
+                            <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Text style={styles.detailPrimary}>Payment Method</Text>
+                                <Text style={[styles.detailPrimary, { fontWeight: '700', color: Colors.brand.dark }]}>
+                                    {getPaymentPreferenceName(job?.payment_preference_id)}
+                                </Text>
                             </View>
                         </View>
 

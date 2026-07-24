@@ -110,6 +110,7 @@ export interface LiveJob {
   attachments?: any[];
   is_location_loading?: boolean;
   is_customer_loading?: boolean;
+  payment_preference_id?: number;
 }
 
 // ─── Client Post Job & Bid Types ──────────────────────────────────────────────

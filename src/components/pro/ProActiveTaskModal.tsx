@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { LiveJob } from '@/hooks/useProWebSocket';
 import UserReviewsModal from '@/components/UserReviewsModal';
+import { getPaymentPreferenceName } from '@/utils/paymentCache';
 
 interface ProActiveTaskModalProps {
     job: LiveJob | null;
@@ -208,6 +209,13 @@ export default function ProActiveTaskModal({
                         <View style={styles.budgetBox}>
                             <Text style={styles.budgetLabel}>Agreed Budget</Text>
                             <Text style={styles.budgetValue}>Rs. {job.budget.toLocaleString()}</Text>
+                        </View>
+
+                        <View style={styles.budgetBox}>
+                            <Text style={styles.budgetLabel}>Payment Method</Text>
+                            <Text style={[styles.budgetValue, { color: Colors.white }]}>
+                                {getPaymentPreferenceName(job.payment_preference_id)}
+                            </Text>
                         </View>
 
                         {Boolean(job.description) && (

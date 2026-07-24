@@ -4,6 +4,7 @@ import { AppUser, Task } from '@/types';
 import useTaskStore from '../store/taskStore';
 import { getUserTasksFromBackend } from '@/services/task';
 import { USER_TYPE_CLIENT } from '@/constants/userTypes';
+import { syncPaymentPreferences } from '@/utils/paymentCache';
 
 interface AuthContextType {
     user: AppUser | null;
@@ -34,6 +35,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (sessionStr) {
                 const sessionUser = JSON.parse(sessionStr);
                 setUser(sessionUser);
+                // Background sync payment preferences on app open
+                syncPaymentPreferences().catch(() => {});
             } else {
                 setUser(null);
             }
@@ -88,6 +91,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     console.warn('[auth login] On-login task history API sync failed:', err);
                 }
             }
+
+            // Sync payment preferences on login
+            syncPaymentPreferences().catch(() => {});
 
             setUser(appUser);
         } catch (e) {

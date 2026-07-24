@@ -25,6 +25,7 @@ type WSMessage =
             price: number;
             category_id: number;
             location_id: number;
+            payment_preference_id?: number;
             created_at?: string;
             created_by?: number;
             customer_name?: string;
@@ -165,6 +166,7 @@ export function useProWebSocket({
                         attachments: t.attachments || [],
                         is_location_loading: Boolean(t.location_id),
                         is_customer_loading: Boolean(t.created_by),
+                        payment_preference_id: t.payment_preference_id,
                     };
 
                     setJobs((prev) => {
@@ -316,6 +318,7 @@ export function useProWebSocket({
                     attachments: (t as any).attachments || [],
                     is_location_loading: Boolean(t.location_id),
                     is_customer_loading: Boolean(t.created_by),
+                    payment_preference_id: t.payment_preference_id,
                 };
             });
 

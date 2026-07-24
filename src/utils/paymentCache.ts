@@ -1,0 +1,39 @@
+import { createMMKV } from 'react-native-mmkv';
+import { getPaymentPreferencesFromBackend } from '@/services/task';
+import { PaymentPreference } from '@/types';
+
+const storage = createMMKV({ id: 'payment-preferences-storage' });
+
+export const getCachedPaymentPreferences = (): PaymentPreference[] => {
+  try {
+    const raw = storage.getString('payment_preferences');
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch (e) {
+    console.error('[paymentCache] Error reading cached payment preferences:', e);
+  }
+  return [];
+};
+
+export const syncPaymentPreferences = async (): Promise<PaymentPreference[]> => {
+  try {
+    console.log('[paymentCache] Fetching payment preferences from backend...');
+    const data = await getPaymentPreferencesFromBackend();
+    if (data && Array.isArray(data)) {
+      storage.set('payment_preferences', JSON.stringify(data));
+      console.log(`[paymentCache] Synced ${data.length} payment preferences.`);
+      return data;
+    }
+  } catch (e) {
+    console.error('[paymentCache] Error syncing payment preferences from backend:', e);
+  }
+  return getCachedPaymentPreferences();
+};
+
+export const getPaymentPreferenceName = (id: number | undefined | null): string => {
+  if (id === undefined || id === null) return 'Cash';
+  const list = getCachedPaymentPreferences();
+  const pref = list.find((p) => Number(p.id) === Number(id));
+  return pref ? pref.name : 'Cash';
+};
